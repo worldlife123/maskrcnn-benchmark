@@ -45,6 +45,7 @@ def do_train(
     device,
     checkpoint_period,
     arguments,
+    tflogger=None,
 ):
     logger = logging.getLogger("maskrcnn_benchmark.trainer")
     logger.info("Start training")
@@ -109,6 +110,12 @@ def do_train(
                     memory=torch.cuda.max_memory_allocated() / 1024.0 / 1024.0,
                 )
             )
+
+            if tflogger:
+                for name in loss_dict_reduced:
+                    tflogger.add_scalar("losses/"+name, loss_dict_reduced[name], iteration)
+                    tflogger.add_scalar("loss_sum", losses_reduced, iteration)
+
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:

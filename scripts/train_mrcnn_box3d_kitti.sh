@@ -1,0 +1,1 @@
+python tools/train_net.py --config-file configs/kitti/e2e_mask_rcnn_box3d_R_50_FPN_1x_cocoft.yaml

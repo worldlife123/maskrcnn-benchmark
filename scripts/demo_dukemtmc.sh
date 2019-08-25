@@ -1,0 +1,3 @@
+python demo/webcam_depth.py --video-path "/home/dff/NewDisk/DukeMTMC/videos/camera5/00009.MTS" --config-file configs/dukemtmc/e2e_mask_rcnn_depth_R_50_FPN_1x.yaml --focal-length 2109
+# python demo/webcam.py --video-path "/home/dff/NewDisk/DukeMTMC/videos/camera8/00000.MTS" --config-file configs/cityscapes/e2e_mask_rcnn_depth_cococlass_R_50_FPN_1x_cocoft_depthonly.yaml
+# python demo/webcam_depth.py --video-path "/home/dff/NewDisk/Videos/another_view2.mp4" --config-file configs/dukemtmc/e2e_mask_rcnn_depth_R_50_FPN_1x.yaml --focal-length 2000

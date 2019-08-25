@@ -93,22 +93,175 @@ class DatasetCatalog(object):
             # PASCAL VOC2012 doesn't made the test annotations available, so there's no json annotation
         },
         "cityscapes_fine_instanceonly_seg_train_cocostyle": {
-            "img_dir": "cityscapes/images",
+            "img_dir": "cityscapes",
             "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_train.json"
         },
         "cityscapes_fine_instanceonly_seg_val_cocostyle": {
-            "img_dir": "cityscapes/images",
+            "img_dir": "cityscapes",
             "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_val.json"
         },
         "cityscapes_fine_instanceonly_seg_test_cocostyle": {
-            "img_dir": "cityscapes/images",
+            "img_dir": "cityscapes",
             "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_test.json"
-        }
+        },
+        "cityscapes_fine_instanceonly_seg_wd_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json",
+            "depth_key": "disp_base"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json",
+            "depth_key": "disp_base"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
+            "depth_key": "disp_base"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_COCOclass_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_train.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_COCOclass_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_val.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_COCOclass_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_test.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_eb_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_expand_bbox/instancesonly_filtered_gtFine_train.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_eb_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_expand_bbox/instancesonly_filtered_gtFine_val.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wd_eb_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_expand_bbox/instancesonly_filtered_gtFine_test.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wdu_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json",
+            "depth_key": "depth_unity"
+        },
+        "cityscapes_fine_instanceonly_seg_wdu_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json",
+            "depth_key": "depth_unity"
+        },
+        "cityscapes_fine_instanceonly_seg_wdu_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
+            "depth_key": "depth_unity"
+        },
+        "cityscapes_fine_instanceonly_seg_wdiu_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json",
+            "depth_key": "disp_unity"
+        },
+        "cityscapes_fine_instanceonly_seg_wdiu_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json",
+            "depth_key": "disp_unity"
+        },
+        "cityscapes_fine_instanceonly_seg_wdiu_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
+            "depth_key": "disp_unity"
+        },
+
+        "cityscapes_fine_instanceonly_seg_wh_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wh_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wh_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wh_COCOclass_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_train.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wh_COCOclass_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_val.json"
+        },
+        "cityscapes_fine_instanceonly_seg_wh_COCOclass_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth_cococlass/instancesonly_filtered_gtFine_test.json"
+        },
+
+        "cityscapes_fine_instanceonly_seg_lr_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json"
+        },
+        "cityscapes_fine_instanceonly_seg_lr_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json"
+        },
+        "cityscapes_fine_instanceonly_seg_lr_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json"
+        },
+
+        "dukemtmc_train_cocostyle": {
+            "img_dir": "dukemtmc/images",
+            "ann_file": "dukemtmc/ground_truth/train.json"
+        },
+        "dukemtmc_val_cocostyle": {
+            "img_dir": "dukemtmc/images",
+            "ann_file": "dukemtmc/ground_truth/val.json"
+        },
+        "dukemtmc_masked_train_cocostyle": {
+            "img_dir": "dukemtmc_masked/images",
+            "ann_file": "dukemtmc/ground_truth/train_masked.json"
+        },
+        "dukemtmc_masked_val_cocostyle": {
+            "img_dir": "dukemtmc_masked/images",
+            "ann_file": "dukemtmc/ground_truth/val_masked.json"
+        },
+        "dukemtmc_train_cam5_cocostyle": {
+            "img_dir": "dukemtmc/images",
+            "ann_file": "dukemtmc/ground_truth/train_cam5.json"
+        },
+        "dukemtmc_val_cam5_cocostyle": {
+            "img_dir": "dukemtmc/images",
+            "ann_file": "dukemtmc/ground_truth/val_cam5.json"
+        },
+
+        "kitti_3d_3dop_box3d_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+        },
+        "kitti_3d_3dop_box3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+        },
+
     }
 
     @staticmethod
     def get(name):
-        if "coco" in name:
+        if "dukemtmc" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+            )
+            return dict(
+                factory="DukeMTMCDataset",
+                args=args,
+            )
+        elif "coco" in name:
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
@@ -117,6 +270,51 @@ class DatasetCatalog(object):
             )
             return dict(
                 factory="COCODataset",
+                args=args,
+            )
+        elif "cityscapes" in name and "_wd" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+                depth_key=attrs["depth_key"] if attrs.get("depth_key") else "depth",
+            )
+            return dict(
+                factory="CityScapesWDDataset",
+                args=args,
+            )
+        elif "cityscapes" in name and "_wh" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+            )
+            return dict(
+                factory="CityScapesWHDataset",
+                args=args,
+            )
+        elif "cityscapes" in name and "_lr" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+            )
+            return dict(
+                factory="CityScapesLRDataset",
+                args=args,
+            )
+        elif "kitti" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+            )
+            return dict(
+                factory="KITTI3DDataset",
                 args=args,
             )
         elif "voc" in name:

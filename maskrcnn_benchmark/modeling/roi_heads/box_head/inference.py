@@ -123,6 +123,7 @@ class PostProcessor(nn.Module):
             inds = inds_all[:, j].nonzero().squeeze(1)
             scores_j = scores[inds, j]
             boxes_j = boxes[inds, j * 4 : (j + 1) * 4]
+            # if j==1:print(inds_all[:, j])
             boxlist_for_class = BoxList(boxes_j, boxlist.size, mode="xyxy")
             boxlist_for_class.add_field("scores", scores_j)
             boxlist_for_class = boxlist_nms(

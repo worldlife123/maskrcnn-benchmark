@@ -1,0 +1,1 @@
+python demo/vis_dataset.py --config-file configs/dukemtmc/e2e_mask_rcnn_depth_R_50_FPN_1x.yaml --test-only

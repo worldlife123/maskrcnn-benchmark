@@ -7,6 +7,8 @@ from .roi_box_predictors import make_roi_box_predictor
 from .inference import make_roi_box_post_processor
 from .loss import make_roi_box_loss_evaluator
 
+from maskrcnn_benchmark.modeling.box_coder import BoxCoder
+
 
 class ROIBoxHead(torch.nn.Module):
     """
@@ -15,11 +17,16 @@ class ROIBoxHead(torch.nn.Module):
 
     def __init__(self, cfg, in_channels):
         super(ROIBoxHead, self).__init__()
+        self.cfg = cfg.clone()
         self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
         self.predictor = make_roi_box_predictor(
             cfg, self.feature_extractor.out_channels)
         self.post_processor = make_roi_box_post_processor(cfg)
         self.loss_evaluator = make_roi_box_loss_evaluator(cfg)
+        if self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
+            for m in [self.feature_extractor, self.predictor]:
+                for p in m.parameters():
+                    p.requires_grad = False
 
     def forward(self, features, proposals, targets=None):
         """
@@ -52,14 +59,35 @@ class ROIBoxHead(torch.nn.Module):
             result = self.post_processor((class_logits, box_regression), proposals)
             return x, result, {}
 
-        loss_classifier, loss_box_reg = self.loss_evaluator(
-            [class_logits], [box_regression]
-        )
-        return (
-            x,
-            proposals,
-            dict(loss_classifier=loss_classifier, loss_box_reg=loss_box_reg),
-        )
+        if not self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
+            loss_classifier, loss_box_reg = self.loss_evaluator(
+                [class_logits], [box_regression]
+            )
+
+        if self.cfg.MODEL.ROI_BOX_HEAD.OUTPUT_DECODED_PROPOSAL:
+            bbox_reg_weights = self.cfg.MODEL.ROI_HEADS.BBOX_REG_WEIGHTS
+            box_coder = BoxCoder(weights=bbox_reg_weights)
+            boxes_per_image = [len(box) for box in proposals]
+            concat_boxes = torch.cat([a.bbox for a in proposals], dim=0)
+            decoded_proposals = box_coder.decode(
+                box_regression.view(sum(boxes_per_image), -1), concat_boxes
+            )
+            decoded_proposals = decoded_proposals.split(boxes_per_image, dim=0)
+            # decoded_proposals = self.post_processor((class_logits, box_regression), proposals)
+            # make sure there are valid proposals
+            for i, boxes in enumerate(decoded_proposals):
+                if len(boxes) > 0:
+                    proposals[i].bbox = boxes.reshape(-1, 4)
+
+        if not self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
+            return (
+                x,
+                proposals,
+                dict(loss_classifier=loss_classifier, loss_box_reg=loss_box_reg),
+            )
+
+        return x, proposals, dict()
+        
 
 
 def build_roi_box_head(cfg, in_channels):

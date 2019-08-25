@@ -12,7 +12,7 @@ class FPN(nn.Module):
     """
 
     def __init__(
-        self, in_channels_list, out_channels, conv_block, top_blocks=None
+        self, in_channels_list, out_channels, conv_block, top_blocks=None, freeze_weight=False
     ):
         """
         Arguments:
@@ -34,6 +34,11 @@ class FPN(nn.Module):
                 continue
             inner_block_module = conv_block(in_channels, out_channels, 1)
             layer_block_module = conv_block(out_channels, out_channels, 3, 1)
+            if freeze_weight:
+                for p in inner_block_module.parameters():
+                    p.requires_grad=False
+                for p in layer_block_module.parameters():
+                    p.requires_grad=False
             self.add_module(inner_block, inner_block_module)
             self.add_module(layer_block, layer_block_module)
             self.inner_blocks.append(inner_block)

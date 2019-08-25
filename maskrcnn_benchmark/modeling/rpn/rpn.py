@@ -124,6 +124,10 @@ class RPNModule(torch.nn.Module):
             cfg, in_channels, anchor_generator.num_anchors_per_location()[0]
         )
 
+        if self.cfg.MODEL.RPN.FREEZE_WEIGHT:
+            for p in head.parameters():
+                p.requires_grad = False
+
         rpn_box_coder = BoxCoder(weights=(1.0, 1.0, 1.0, 1.0))
 
         box_selector_train = make_rpn_postprocessor(cfg, rpn_box_coder, is_train=True)
@@ -174,13 +178,17 @@ class RPNModule(torch.nn.Module):
                 boxes = self.box_selector_train(
                     anchors, objectness, rpn_box_regression, targets
                 )
-        loss_objectness, loss_rpn_box_reg = self.loss_evaluator(
-            anchors, objectness, rpn_box_regression, targets
-        )
-        losses = {
-            "loss_objectness": loss_objectness,
-            "loss_rpn_box_reg": loss_rpn_box_reg,
-        }
+        if not self.cfg.MODEL.RPN.FREEZE_WEIGHT:
+            loss_objectness, loss_rpn_box_reg = self.loss_evaluator(
+                anchors, objectness, rpn_box_regression, targets
+            )
+            losses = {
+                "loss_objectness": loss_objectness,
+                "loss_rpn_box_reg": loss_rpn_box_reg,
+            }
+        else:
+            losses = {}
+
         return boxes, losses
 
     def _forward_test(self, anchors, objectness, rpn_box_regression):

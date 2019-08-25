@@ -24,7 +24,10 @@ _C.MODEL = CN()
 _C.MODEL.RPN_ONLY = False
 _C.MODEL.MASK_ON = False
 _C.MODEL.RETINANET_ON = False
+_C.MODEL.DEPTHNET_ON = False
 _C.MODEL.KEYPOINT_ON = False
+_C.MODEL.DEPTH_ON = False
+_C.MODEL.BOX3D_ON = False
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
 _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
@@ -33,7 +36,7 @@ _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # the path in paths_catalog. Else, it will use it as the specified absolute
 # path
 _C.MODEL.WEIGHT = ""
-
+_C.MODEL.STRICT_CHECKPOINT = True
 
 # -----------------------------------------------------------------------------
 # INPUT
@@ -60,7 +63,10 @@ _C.INPUT.CONTRAST = 0.0
 _C.INPUT.SATURATION = 0.0
 _C.INPUT.HUE = 0.0
 
+_C.INPUT.HORIZONTAL_FLIP_PROB_TRAIN = 0.5
 _C.INPUT.VERTICAL_FLIP_PROB_TRAIN = 0.0
+
+_C.INPUT.LR_IMAGE = False
 
 # -----------------------------------------------------------------------------
 # Dataset
@@ -107,7 +113,7 @@ _C.MODEL.BACKBONE.FREEZE_CONV_BODY_AT = 2
 _C.MODEL.FPN = CN()
 _C.MODEL.FPN.USE_GN = False
 _C.MODEL.FPN.USE_RELU = False
-
+_C.MODEL.FPN.FREEZE_WEIGHT = False
 
 # ---------------------------------------------------------------------------- #
 # Group Norm options
@@ -169,6 +175,8 @@ _C.MODEL.RPN.FPN_POST_NMS_TOP_N_TEST = 2000
 _C.MODEL.RPN.FPN_POST_NMS_PER_BATCH = True
 # Custom rpn head, empty to use default conv or separable conv
 _C.MODEL.RPN.RPN_HEAD = "SingleConvRPNHead"
+# Freeze weight
+_C.MODEL.RPN.FREEZE_WEIGHT = False
 
 
 # ---------------------------------------------------------------------------- #
@@ -221,6 +229,10 @@ _C.MODEL.ROI_BOX_HEAD.USE_GN = False
 _C.MODEL.ROI_BOX_HEAD.DILATION = 1
 _C.MODEL.ROI_BOX_HEAD.CONV_HEAD_DIM = 256
 _C.MODEL.ROI_BOX_HEAD.NUM_STACKED_CONVS = 4
+# Freeze weight
+_C.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT = False
+# Freeze weight
+_C.MODEL.ROI_BOX_HEAD.OUTPUT_DECODED_PROPOSAL = False
 
 
 _C.MODEL.ROI_MASK_HEAD = CN()
@@ -240,6 +252,10 @@ _C.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS_THRESHOLD = 0.5
 _C.MODEL.ROI_MASK_HEAD.DILATION = 1
 # GN
 _C.MODEL.ROI_MASK_HEAD.USE_GN = False
+# Freeze weight
+_C.MODEL.ROI_MASK_HEAD.FREEZE_WEIGHT = False
+# decoded proposal
+_C.MODEL.ROI_MASK_HEAD.USE_DECODED_PROPOSAL = False
 
 _C.MODEL.ROI_KEYPOINT_HEAD = CN()
 _C.MODEL.ROI_KEYPOINT_HEAD.FEATURE_EXTRACTOR = "KeypointRCNNFeatureExtractor"
@@ -252,6 +268,90 @@ _C.MODEL.ROI_KEYPOINT_HEAD.CONV_LAYERS = tuple(512 for _ in range(8))
 _C.MODEL.ROI_KEYPOINT_HEAD.RESOLUTION = 14
 _C.MODEL.ROI_KEYPOINT_HEAD.NUM_CLASSES = 17
 _C.MODEL.ROI_KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
+# Freeze weight
+_C.MODEL.ROI_KEYPOINT_HEAD.FREEZE_WEIGHT = False
+# decoded proposal
+_C.MODEL.ROI_KEYPOINT_HEAD.USE_DECODED_PROPOSAL = False
+
+_C.MODEL.ROI_DEPTH_HEAD = CN()
+_C.MODEL.ROI_DEPTH_HEAD.FEATURE_EXTRACTOR = "ResNet50Conv5ROIFeatureExtractor"
+_C.MODEL.ROI_DEPTH_HEAD.PREDICTOR = "FastRCNNPredictor"
+_C.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION = 14
+_C.MODEL.ROI_DEPTH_HEAD.POOLER_SAMPLING_RATIO = 0
+_C.MODEL.ROI_DEPTH_HEAD.POOLER_SCALES = (1.0 / 16,)
+_C.MODEL.ROI_DEPTH_HEAD.NUM_CLASSES = 81
+_C.MODEL.ROI_DEPTH_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
+_C.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG = False
+# Hidden layer dimension when using an MLP for the RoI box head
+_C.MODEL.ROI_DEPTH_HEAD.MLP_HEAD_DIM = 1024
+# GN
+_C.MODEL.ROI_DEPTH_HEAD.USE_GN = False
+# Dilation
+_C.MODEL.ROI_DEPTH_HEAD.DILATION = 1
+_C.MODEL.ROI_DEPTH_HEAD.CONV_HEAD_DIM = 256
+_C.MODEL.ROI_DEPTH_HEAD.NUM_STACKED_CONVS = 4
+# Freeze weight
+_C.MODEL.ROI_DEPTH_HEAD.FREEZE_WEIGHT = False
+# decoded proposal
+_C.MODEL.ROI_DEPTH_HEAD.USE_DECODED_PROPOSAL = False
+# Loss amplifier
+_C.MODEL.ROI_DEPTH_HEAD.LOSS_AMPLIFIER = 1.0
+# reg amplifier
+_C.MODEL.ROI_DEPTH_HEAD.REG_AMPLIFIER = 1.0
+_C.MODEL.ROI_DEPTH_HEAD.REG_LOGARITHM = False
+
+_C.MODEL.ROI_DEPTH_HEAD.LR_REGULARIZATION_AMPLIFIER = 1.0
+
+_C.MODEL.ROI_BOX3D_HEAD = CN()
+_C.MODEL.ROI_BOX3D_HEAD.FEATURE_EXTRACTOR = "ResNet50Conv5ROIFeatureExtractor"
+_C.MODEL.ROI_BOX3D_HEAD.PREDICTOR = "FastRCNNPredictor"
+_C.MODEL.ROI_BOX3D_HEAD.POOLER_RESOLUTION = 14
+_C.MODEL.ROI_BOX3D_HEAD.POOLER_SAMPLING_RATIO = 0
+_C.MODEL.ROI_BOX3D_HEAD.POOLER_SCALES = (1.0 / 16,)
+_C.MODEL.ROI_BOX3D_HEAD.NUM_CLASSES = 81
+_C.MODEL.ROI_BOX3D_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
+_C.MODEL.ROI_BOX3D_HEAD.SINGLE_BOX3D_REG = False
+# Hidden layer dimension when using an MLP for the RoI box head
+_C.MODEL.ROI_BOX3D_HEAD.MLP_HEAD_DIM = 1024
+# GN
+_C.MODEL.ROI_BOX3D_HEAD.USE_GN = False
+# Dilation
+_C.MODEL.ROI_BOX3D_HEAD.DILATION = 1
+_C.MODEL.ROI_BOX3D_HEAD.CONV_HEAD_DIM = 256
+_C.MODEL.ROI_BOX3D_HEAD.NUM_STACKED_CONVS = 4
+# Freeze weight
+_C.MODEL.ROI_BOX3D_HEAD.FREEZE_WEIGHT = False
+# decoded proposal
+_C.MODEL.ROI_BOX3D_HEAD.USE_DECODED_PROPOSAL = False
+# Loss amplifier
+_C.MODEL.ROI_BOX3D_HEAD.LOSS_AMPLIFIER = 1.0
+# reg amplifier
+_C.MODEL.ROI_BOX3D_HEAD.REG_AMPLIFIER = 1.0
+_C.MODEL.ROI_BOX3D_HEAD.REG_LOGARITHM = False
+
+_C.MODEL.ROI_BOX3D_HEAD.LR_REGULARIZATION_AMPLIFIER = 1.0
+
+_C.MODEL.ROI_DEPTHMASK_HEAD = CN()
+_C.MODEL.ROI_DEPTHMASK_HEAD.FEATURE_EXTRACTOR = "ResNet50Conv5ROIFeatureExtractor"
+_C.MODEL.ROI_DEPTHMASK_HEAD.PREDICTOR = "MaskRCNNC4Predictor"
+_C.MODEL.ROI_DEPTHMASK_HEAD.POOLER_RESOLUTION = 14
+_C.MODEL.ROI_DEPTHMASK_HEAD.POOLER_SAMPLING_RATIO = 0
+_C.MODEL.ROI_DEPTHMASK_HEAD.POOLER_SCALES = (1.0 / 16,)
+_C.MODEL.ROI_DEPTHMASK_HEAD.MLP_HEAD_DIM = 1024
+_C.MODEL.ROI_DEPTHMASK_HEAD.CONV_LAYERS = (256, 256, 256, 256)
+_C.MODEL.ROI_DEPTHMASK_HEAD.RESOLUTION = 14
+_C.MODEL.ROI_DEPTHMASK_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
+# Whether or not resize and translate masks to the input image.
+_C.MODEL.ROI_DEPTHMASK_HEAD.POSTPROCESS_MASKS = False
+_C.MODEL.ROI_DEPTHMASK_HEAD.POSTPROCESS_MASKS_THRESHOLD = 0.5
+# Dilation
+_C.MODEL.ROI_DEPTHMASK_HEAD.DILATION = 1
+# GN
+_C.MODEL.ROI_DEPTHMASK_HEAD.USE_GN = False
+# Freeze weight
+_C.MODEL.ROI_DEPTHMASK_HEAD.FREEZE_WEIGHT = False
+# decoded proposal
+_C.MODEL.ROI_DEPTHMASK_HEAD.USE_DECODED_PROPOSAL = False
 
 # ---------------------------------------------------------------------------- #
 # ResNe[X]t options (ResNets = {ResNet, ResNeXt}
@@ -385,6 +485,14 @@ _C.MODEL.FBNET.RPN_HEAD_BLOCKS = 0
 _C.MODEL.FBNET.RPN_BN_TYPE = ""
 
 
+# depthnet
+_C.MODEL.DEPTHNET = CN()
+# losses
+_C.MODEL.DEPTHNET.LOSS_IMAGE = 1.0
+_C.MODEL.DEPTHNET.LOSS_LR_CONSISTENCY = 1.0
+_C.MODEL.DEPTHNET.LOSS_SMOOTHNESS = 1.0
+_C.MODEL.DEPTHNET.FREEZE_WEIGHT = False
+
 # ---------------------------------------------------------------------------- #
 # Solver
 # ---------------------------------------------------------------------------- #
@@ -412,6 +520,9 @@ _C.SOLVER.CHECKPOINT_PERIOD = 2500
 # This is global, so if we have 8 GPUs and IMS_PER_BATCH = 16, each GPU will
 # see 2 images per batch
 _C.SOLVER.IMS_PER_BATCH = 16
+
+_C.SOLVER.LOAD_OPTIMIZER_FROM_WEIGHT = True
+_C.SOLVER.LOAD_SCHEDULER_FROM_WEIGHT = True
 
 # ---------------------------------------------------------------------------- #
 # Specific test options
@@ -451,7 +562,7 @@ _C.TEST.BBOX_AUG.SCALE_H_FLIP = False
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
-_C.OUTPUT_DIR = "."
+_C.OUTPUT_DIR = "./checkpoints"
 
 _C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
 

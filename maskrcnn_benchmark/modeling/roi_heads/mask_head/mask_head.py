@@ -42,6 +42,10 @@ class ROIMaskHead(torch.nn.Module):
             cfg, self.feature_extractor.out_channels)
         self.post_processor = make_roi_mask_post_processor(cfg)
         self.loss_evaluator = make_roi_mask_loss_evaluator(cfg)
+        if self.cfg.MODEL.ROI_MASK_HEAD.FREEZE_WEIGHT:
+            for m in [self.feature_extractor, self.predictor]:
+                for p in m.parameters():
+                    p.requires_grad = False
 
     def forward(self, features, proposals, targets=None):
         """
@@ -74,9 +78,12 @@ class ROIMaskHead(torch.nn.Module):
             result = self.post_processor(mask_logits, proposals)
             return x, result, {}
 
-        loss_mask = self.loss_evaluator(proposals, mask_logits, targets)
+        if not self.cfg.MODEL.ROI_MASK_HEAD.FREEZE_WEIGHT:
+            loss_mask = self.loss_evaluator(proposals, mask_logits, targets)
 
-        return x, all_proposals, dict(loss_mask=loss_mask)
+            return x, all_proposals, dict(loss_mask=loss_mask)
+
+        return x, all_proposals, dict()
 
 
 def build_roi_mask_head(cfg, in_channels):

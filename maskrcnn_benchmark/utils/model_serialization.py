@@ -68,7 +68,7 @@ def strip_prefix_if_present(state_dict, prefix):
     return stripped_state_dict
 
 
-def load_state_dict(model, loaded_state_dict):
+def load_state_dict(model, loaded_state_dict, strict=True):
     model_state_dict = model.state_dict()
     # if the state_dict comes from a model that was wrapped in a
     # DataParallel or DistributedDataParallel during serialization,
@@ -77,4 +77,4 @@ def load_state_dict(model, loaded_state_dict):
     align_and_update_state_dicts(model_state_dict, loaded_state_dict)
 
     # use strict loading
-    model.load_state_dict(model_state_dict)
+    model.load_state_dict(model_state_dict, strict=strict)

@@ -448,4 +448,7 @@ _STAGE_SPECS = Registry({
     "R-101-FPN": ResNet101FPNStagesTo5,
     "R-101-FPN-RETINANET": ResNet101FPNStagesTo5,
     "R-152-FPN": ResNet152FPNStagesTo5,
+    "R-50-DEPTHNET-FPN": ResNet50FPNStagesTo5,
+    "R-101-DEPTHNET-FPN": ResNet101FPNStagesTo5,
+    "R-152-DEPTHNET-FPN": ResNet152FPNStagesTo5,
 })

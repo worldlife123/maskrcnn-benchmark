@@ -56,10 +56,16 @@ class Resize(object):
 
     def __call__(self, image, target=None):
         size = self.get_size(image.size)
-        image = F.resize(image, size)
-        if target is None:
-            return image
-        target = target.resize(image.size)
+        if isinstance(image, list) or isinstance(image, tuple):
+            image = [F.resize(im, size) for im in image]
+            if target is None:
+                return image
+            target = target.resize(image[0])
+        else:
+            image = F.resize(image, size)
+            if target is None:
+                return image
+            target = target.resize(image.size)
         return image, target
 
 
@@ -69,7 +75,10 @@ class RandomHorizontalFlip(object):
 
     def __call__(self, image, target):
         if random.random() < self.prob:
-            image = F.hflip(image)
+            if isinstance(image, list) or isinstance(image, tuple):
+                image = [F.hflip(im) for im in image]
+            else:
+                image = F.hflip(image)
             target = target.transpose(0)
         return image, target
 
@@ -78,9 +87,11 @@ class RandomVerticalFlip(object):
         self.prob = prob
 
     def __call__(self, image, target):
-        if random.random() < self.prob:
+        if isinstance(image, list) or isinstance(image, tuple):
+            image = [F.vflip(im) for im in image]
+        else:
             image = F.vflip(image)
-            target = target.transpose(1)
+        target = target.transpose(1)
         return image, target
 
 class ColorJitter(object):
@@ -97,13 +108,20 @@ class ColorJitter(object):
             hue=hue,)
 
     def __call__(self, image, target):
-        image = self.color_jitter(image)
+        if isinstance(image, list) or isinstance(image, tuple):
+            image = [self.color_jitter(im) for im in image]
+        else:
+            image = self.color_jitter(image)
         return image, target
 
 
 class ToTensor(object):
     def __call__(self, image, target):
-        return F.to_tensor(image), target
+        if isinstance(image, list) or isinstance(image, tuple):
+            image = [F.to_tensor(im) for im in image]
+        else:
+            image = F.to_tensor(image)
+        return image, target
 
 
 class Normalize(object):
@@ -113,9 +131,18 @@ class Normalize(object):
         self.to_bgr255 = to_bgr255
 
     def __call__(self, image, target=None):
-        if self.to_bgr255:
-            image = image[[2, 1, 0]] * 255
-        image = F.normalize(image, mean=self.mean, std=self.std)
+        if isinstance(image, list) or isinstance(image, tuple):
+            images_new = []
+            for im in image:
+                if self.to_bgr255:
+                    im = im[[2, 1, 0]] * 255
+                im = F.normalize(im, mean=self.mean, std=self.std)
+                images_new.append(im)
+            image = images_new
+        else:
+            if self.to_bgr255:
+                image = image[[2, 1, 0]] * 255
+            image = F.normalize(image, mean=self.mean, std=self.std)
         if target is None:
             return image
         return image, target

@@ -13,13 +13,16 @@ from maskrcnn_benchmark.utils.model_zoo import cache_url
 class Checkpointer(object):
     def __init__(
         self,
+        cfg,
         model,
         optimizer=None,
         scheduler=None,
         save_dir="",
         save_to_disk=None,
         logger=None,
+        strict=True,
     ):
+        self.cfg = cfg.clone()
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -28,6 +31,7 @@ class Checkpointer(object):
         if logger is None:
             logger = logging.getLogger(__name__)
         self.logger = logger
+        self.strict = strict
 
     def save(self, name, **kwargs):
         if not self.save_dir:
@@ -60,10 +64,10 @@ class Checkpointer(object):
         self.logger.info("Loading checkpoint from {}".format(f))
         checkpoint = self._load_file(f)
         self._load_model(checkpoint)
-        if "optimizer" in checkpoint and self.optimizer:
+        if "optimizer" in checkpoint and self.optimizer and self.cfg.SOLVER.LOAD_OPTIMIZER_FROM_WEIGHT:
             self.logger.info("Loading optimizer from {}".format(f))
             self.optimizer.load_state_dict(checkpoint.pop("optimizer"))
-        if "scheduler" in checkpoint and self.scheduler:
+        if "scheduler" in checkpoint and self.scheduler and self.cfg.SOLVER.LOAD_SCHEDULER_FROM_WEIGHT:
             self.logger.info("Loading scheduler from {}".format(f))
             self.scheduler.load_state_dict(checkpoint.pop("scheduler"))
 
@@ -95,7 +99,7 @@ class Checkpointer(object):
         return torch.load(f, map_location=torch.device("cpu"))
 
     def _load_model(self, checkpoint):
-        load_state_dict(self.model, checkpoint.pop("model"))
+        load_state_dict(self.model, checkpoint.pop("model"), strict=self.strict)
 
 
 class DetectronCheckpointer(Checkpointer):
@@ -110,9 +114,9 @@ class DetectronCheckpointer(Checkpointer):
         logger=None,
     ):
         super(DetectronCheckpointer, self).__init__(
-            model, optimizer, scheduler, save_dir, save_to_disk, logger
+            cfg, model, optimizer, scheduler, save_dir, save_to_disk, logger, cfg.MODEL.STRICT_CHECKPOINT
         )
-        self.cfg = cfg.clone()
+        # self.cfg = cfg.clone()
 
     def _load_file(self, f):
         # catalog lookup

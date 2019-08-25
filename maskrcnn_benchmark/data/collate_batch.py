@@ -19,6 +19,24 @@ class BatchCollator(object):
         img_ids = transposed_batch[2]
         return images, targets, img_ids
 
+class BatchCollator2Input(object):
+    """
+    From a list of samples from the dataset,
+    returns the batched images and targets.
+    This should be passed to the DataLoader
+    """
+
+    def __init__(self, size_divisible=0):
+        self.size_divisible = size_divisible
+
+    def __call__(self, batch):
+        transposed_batch = list(zip(*batch))
+        images = to_image_list(transposed_batch[0], self.size_divisible)
+        targets = transposed_batch[2]
+        images2 = to_image_list(transposed_batch[1], self.size_divisible)
+        targets2 = transposed_batch[3]
+        img_ids = transposed_batch[2]
+        return images, images2, targets, targets2, img_ids
 
 class BBoxAugCollator(object):
     """

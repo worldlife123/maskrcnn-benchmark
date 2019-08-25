@@ -1,0 +1,1 @@
+python tools/train_net.py --config-file configs/pascal_voc/e2e_faster_rcnn_R_50_C4_1x_1_gpu_voc.yaml

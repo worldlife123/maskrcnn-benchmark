@@ -10,6 +10,10 @@ from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:sk
 import argparse
 import os
 
+# fix for vscode debugging
+# import multiprocessing
+# multiprocessing.set_start_method('spawn', True)
+
 import torch
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
@@ -32,6 +36,7 @@ try:
 except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
+from tensorboardX import SummaryWriter
 
 def train(cfg, local_rank, distributed):
     model = build_detection_model(cfg)
@@ -74,6 +79,8 @@ def train(cfg, local_rank, distributed):
 
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
+    tflogger = SummaryWriter(log_dir=os.path.join(output_dir, "logs"))
+
     do_train(
         model,
         data_loader,
@@ -83,6 +90,7 @@ def train(cfg, local_rank, distributed):
         device,
         checkpoint_period,
         arguments,
+        tflogger,
     )
 
     return model
@@ -97,6 +105,8 @@ def run_test(cfg, model, distributed):
         iou_types = iou_types + ("segm",)
     if cfg.MODEL.KEYPOINT_ON:
         iou_types = iou_types + ("keypoints",)
+    if cfg.MODEL.DEPTH_ON:
+        iou_types = iou_types + ("depth",)
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
@@ -144,6 +154,8 @@ def main():
     )
 
     args = parser.parse_args()
+
+    torch.multiprocessing.set_sharing_strategy('file_system')
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     args.distributed = num_gpus > 1

@@ -29,7 +29,7 @@ import os
 import scipy.misc
 import sys
 
-import cityscapesscripts.evaluation.instances2dict_with_polygons as cs
+import instances2dict_with_polygons as cs
 
 
 def parse_args():
@@ -38,6 +38,8 @@ def parse_args():
         '--dataset', help="cocostuff, cityscapes", default=None, type=str)
     parser.add_argument(
         '--outdir', help="output dir for json files", default=None, type=str)
+    parser.add_argument(
+        '--imgoutdir', help="output dir for image symlink files", default=None, type=str)
     parser.add_argument(
         '--datadir', help="data dir for annotations to be converted",
         default=None, type=str)
@@ -113,7 +115,7 @@ def getLabelID(self, instID):
 
 
 def convert_cityscapes_instance_only(
-        data_dir, out_dir):
+        data_dir, out_dir, img_out_dir):
     """Convert from cityscapes format to COCO instance seg format - polygons"""
     sets = [
         'gtFine_val',
@@ -125,9 +127,9 @@ def convert_cityscapes_instance_only(
         # 'gtCoarse_train_extra'
     ]
     ann_dirs = [
-        'gtFine_trainvaltest/gtFine/val',
-        'gtFine_trainvaltest/gtFine/train',
-        'gtFine_trainvaltest/gtFine/test',
+        'gtFine/val',
+        'gtFine/train',
+        'gtFine/test',
 
         # 'gtCoarse/train',
         # 'gtCoarse/train_extra',
@@ -171,14 +173,16 @@ def convert_cityscapes_instance_only(
 
                     image['width'] = json_ann['imgWidth']
                     image['height'] = json_ann['imgHeight']
-                    image['file_name'] = filename[:-len(
-                        ends_in % data_set.split('_')[0])] + 'leftImg8bit.png'
+                    image['file_name'] = os.path.join(os.path.relpath(root, start=data_dir).replace("gtFine", "leftImg8bit"), filename[:-len(
+                        ends_in % data_set.split('_')[0])] + 'leftImg8bit.png')
                     image['seg_file_name'] = filename[:-len(
                         ends_in % data_set.split('_')[0])] + \
                         '%s_instanceIds.png' % data_set.split('_')[0]
                     images.append(image)
 
-                    fullname = os.path.join(root, image['seg_file_name'])
+                    # os.symlink(os.path.abspath(os.path.join(root, image['file_name'])), os.path.join(img_out_dir, image['file_name']))
+
+                    fullname = os.path.abspath(os.path.join(root, image['seg_file_name']))
                     objects = cs.instances2dict_with_polygons(
                         [fullname], verbose=False)[fullname]
 
@@ -230,7 +234,7 @@ def convert_cityscapes_instance_only(
 if __name__ == '__main__':
     args = parse_args()
     if args.dataset == "cityscapes_instance_only":
-        convert_cityscapes_instance_only(args.datadir, args.outdir)
+        convert_cityscapes_instance_only(args.datadir, args.outdir, args.imgoutdir)
     elif args.dataset == "cocostuff":
         convert_coco_stuff_mat(args.datadir, args.outdir)
     else:

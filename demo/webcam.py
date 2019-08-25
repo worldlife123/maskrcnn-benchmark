@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--min-image-size",
         type=int,
-        default=224,
+        default=800,
         help="Smallest size of the image to feed to the model. "
             "Model was trained with 800, which gives best results",
     )
@@ -40,6 +40,12 @@ def main():
         type=int,
         default=2,
         help="Number of heatmaps per dimension to show",
+    )
+    parser.add_argument(
+        "--video-path",
+        type=str,
+        default="0",
+        help="Video path or camera id",
     )
     parser.add_argument(
         "opts",
@@ -63,16 +69,24 @@ def main():
         masks_per_dim=args.masks_per_dim,
         min_image_size=args.min_image_size,
     )
+    
+    try:
+        cam_vid = int(args.video_path)
+    except:
+        cam_vid = args.video_path
 
-    cam = cv2.VideoCapture(0)
+    cam = cv2.VideoCapture(cam_vid)
     while True:
         start_time = time.time()
         ret_val, img = cam.read()
         composite = coco_demo.run_on_opencv_image(img)
         print("Time: {:.2f} s / img".format(time.time() - start_time))
         cv2.imshow("COCO detections", composite)
-        if cv2.waitKey(1) == 27:
+        key = cv2.waitKey(1) 
+        if key == 27:
             break  # esc to quit
+        elif key == ord('s'):
+            cv2.imwrite("tmp.jpg", composite)
     cv2.destroyAllWindows()
 
 

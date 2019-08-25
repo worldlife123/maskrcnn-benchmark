@@ -24,7 +24,7 @@ class KeypointPostProcessor(nn.Module):
             bbox = BoxList(box.bbox, box.size, mode="xyxy")
             for field in box.fields():
                 bbox.add_field(field, box.get_field(field))
-            prob = PersonKeypoints(prob, box.size)
+            prob = Keypoints(prob, box.size)
             prob.add_field("logits", score)
             bbox.add_field("keypoints", prob)
             results.append(bbox)
@@ -75,6 +75,9 @@ def heatmaps_to_keypoints(maps, rois):
         roi_map = cv2.resize(
             maps[i], (roi_map_width, roi_map_height), interpolation=cv2.INTER_CUBIC
         )
+        if roi_map.ndim==2: # 1 keypoint
+            roi_map = np.expand_dims(roi_map, axis=-1)
+
         # Bring back to CHW
         roi_map = np.transpose(roi_map, [2, 0, 1])
         # roi_map_probs = scores_to_probs(roi_map.copy())
@@ -95,7 +98,7 @@ def heatmaps_to_keypoints(maps, rois):
 
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
-from maskrcnn_benchmark.structures.keypoint import PersonKeypoints
+from maskrcnn_benchmark.structures.keypoint import Keypoints
 
 
 class Keypointer(object):
@@ -117,6 +120,15 @@ class Keypointer(object):
             masks.detach().cpu().numpy(), boxes[0].bbox.cpu().numpy()
         )
         return torch.from_numpy(result).to(masks.device), torch.as_tensor(scores, device=masks.device)
+
+        # results, scores = [], []
+        # for boxes_per_image in boxes:
+
+        #     result, score = heatmaps_to_keypoints(
+        #         masks.detach().cpu().numpy(), boxes_per_image.bbox.cpu().numpy()
+        #     )
+        #     results.append(torch.from_numpy(result).to(masks.device))
+        #     scores.append(torch.as_tensor(score, device=masks.device))
 
 
 def make_roi_keypoint_post_processor(cfg):

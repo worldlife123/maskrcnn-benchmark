@@ -72,6 +72,9 @@ class Keypoints(object):
             keypoints.add_field(k, v[item])
         return keypoints
 
+    def __len__(self):
+        return self.keypoints.shape[0]
+
     def add_field(self, field, field_data):
         self.extra_fields[field] = field_data
 
@@ -83,6 +86,7 @@ class Keypoints(object):
         s += 'num_instances={}, '.format(len(self.keypoints))
         s += 'image_width={}, '.format(self.size[0])
         s += 'image_height={})'.format(self.size[1])
+        s += "extra_fields={})".format(self.extra_fields.keys())
         return s
 
 
@@ -93,6 +97,14 @@ def _create_flip_indices(names, flip_map):
     flip_indices = [names.index(i) for i in flipped_names]
     return torch.tensor(flip_indices)
 
+class BoxCenterKeypoints(Keypoints):
+    NAMES = [
+        'center',
+    ]
+    FLIP_MAP = {
+
+    }
+BoxCenterKeypoints.FLIP_INDS = _create_flip_indices(BoxCenterKeypoints.NAMES, BoxCenterKeypoints.FLIP_MAP)
 
 class PersonKeypoints(Keypoints):
     NAMES = [

@@ -35,6 +35,7 @@ class BoxList(object):
         self.size = image_size  # (image_width, image_height)
         self.mode = mode
         self.extra_fields = {}
+        self.extra_datas = {}
 
     def add_field(self, field, field_data):
         self.extra_fields[field] = field_data
@@ -47,6 +48,18 @@ class BoxList(object):
 
     def fields(self):
         return list(self.extra_fields.keys())
+
+    def add_data(self, data, field_data):
+        self.extra_datas[data] = field_data
+
+    def get_data(self, data):
+        return self.extra_datas[data]
+
+    def has_data(self, data):
+        return data in self.extra_datas
+
+    def datas(self):
+        return list(self.extra_datas.keys())
 
     def _copy_extra_fields(self, bbox):
         for k, v in bbox.extra_fields.items():
@@ -206,6 +219,7 @@ class BoxList(object):
         bbox = BoxList(self.bbox[item], self.size, self.mode)
         for k, v in self.extra_fields.items():
             bbox.add_field(k, v[item])
+        bbox.extra_datas = self.extra_datas
         return bbox
 
     def __len__(self):
@@ -251,7 +265,8 @@ class BoxList(object):
         s += "num_boxes={}, ".format(len(self))
         s += "image_width={}, ".format(self.size[0])
         s += "image_height={}, ".format(self.size[1])
-        s += "mode={})".format(self.mode)
+        s += "mode={}, ".format(self.mode)
+        s += "extra_fields={})".format(self.extra_fields.keys())
         return s
 
 

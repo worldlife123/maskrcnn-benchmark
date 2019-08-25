@@ -1,6 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import cv2
+import os, math
 import torch
+from tqdm import tqdm
 from torchvision import transforms as T
 from torchvision.transforms import functional as F
 from maskrcnn_benchmark.modeling.detector import build_detection_model
@@ -9,6 +11,10 @@ from maskrcnn_benchmark.structures.image_list import to_image_list
 from maskrcnn_benchmark.modeling.roi_heads.mask_head.inference import Masker
 from maskrcnn_benchmark import layers as L
 from maskrcnn_benchmark.utils import cv2_util
+from maskrcnn_benchmark.data import make_data_loader
+from maskrcnn_benchmark.engine.bbox_aug import im_detect_bbox_aug
+
+from ddd_utils import *
 
 class Resize(object):
     def __init__(self, min_size, max_size):
@@ -42,6 +48,8 @@ class Resize(object):
         size = self.get_size(image.size)
         image = F.resize(image, size)
         return image
+
+
 class COCODemo(object):
     # COCO categories for pretty print
     CATEGORIES = [
@@ -191,7 +199,7 @@ class COCODemo(object):
         )
         return transform
 
-    def run_on_opencv_image(self, image):
+    def run_on_opencv_image(self, image, f=None, calib=None):
         """
         Arguments:
             image (np.ndarray): an image as returned by OpenCV
@@ -212,6 +220,10 @@ class COCODemo(object):
             result = self.overlay_mask(result, top_predictions)
         if self.cfg.MODEL.KEYPOINT_ON:
             result = self.overlay_keypoints(result, top_predictions)
+        if self.cfg.MODEL.DEPTH_ON:
+            result = self.overlay_depth(result, top_predictions, f)
+        if self.cfg.MODEL.BOX3D_ON:
+            result = self.overlay_box3d(result, top_predictions, calib)
         result = self.overlay_class_names(result, top_predictions)
 
         return result
@@ -278,8 +290,10 @@ class COCODemo(object):
         """
         Simple function that adds fixed colors depending on the class
         """
-        colors = labels[:, None] * self.palette
+        # colors = labels[:, None] * self.palette
+        colors = torch.arange(1, 1+labels.shape[0])[:, None] * self.palette
         colors = (colors % 255).numpy().astype("uint8")
+        # print(labels,colors)
         return colors
 
     def overlay_boxes(self, image, predictions):
@@ -321,6 +335,8 @@ class COCODemo(object):
         colors = self.compute_colors_for_labels(labels).tolist()
 
         for mask, color in zip(masks, colors):
+            if len(mask.shape)==2: mask = np.expand_dims(mask, axis=0)
+            # print(mask.shape)
             thresh = mask[0, :, :, None]
             contours, hierarchy = cv2_util.findContours(
                 thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
@@ -338,6 +354,76 @@ class COCODemo(object):
         kps = torch.cat((kps[:, :, 0:2], scores[:, :, None]), dim=2).numpy()
         for region in kps:
             image = vis_keypoints(image, region.transpose((1, 0)))
+        return image
+
+    def overlay_depth(self, image, predictions, f=None):
+        depths = predictions.get_field("depths").tolist()
+        labels = predictions.get_field("labels").tolist()
+        colors = self.compute_colors_for_labels(predictions.get_field("labels")).tolist()
+        # if self.cfg.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG:
+        # labels = [0] * len(labels)
+        boxes = predictions.bbox
+        
+
+        # template = "depth: {:.6f}"
+        for box, label, depth, color in zip(boxes, labels, depths, colors):
+            x, y = box[:2]
+            # print(depth)
+            if type(depth)==list: depth = depth[0]
+            if f:
+                s = "depth: %.6f" % (1/depth*f) # template.format(depth)
+            else:
+                s = "unidepth: %.6f" % (1/depth)
+            cv2.putText(
+                image, s, (x, y-20), cv2.FONT_HERSHEY_SIMPLEX, .5, tuple(color), 1
+            )
+
+        return image
+
+    def overlay_box3d(self, image, predictions, calib):
+        if calib is None:
+            print("Warning: Without calibration box3d cannot be drawn!")
+            return
+        boxes = predictions.bbox.tolist()
+        # scores = predictions.get_field("scores").tolist()
+        labels = predictions.get_field("labels").tolist()
+        # centers = predictions.get_field('centers').bbox[:,0:2]
+        centers = predictions.get_field("keypoints").keypoints[:,:,:2]
+        centers = centers.view(-1, 2).tolist()
+        depths = predictions.get_field('depths').tolist()
+        dims = predictions.get_field('dims')
+        dims = dims.view(-1, 3).tolist()
+        # rots = predictions.get_field('rots')
+        # rots = rots.view(-1, 8).tolist()
+        alphas = predictions.get_field('alphas').tolist()
+        colors = self.compute_colors_for_labels(predictions.get_field("labels")).tolist()
+        # if self.cfg.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG:
+        # labels = [0] * len(labels)
+
+        if predictions.has_field("locations"): # ground truth has location field
+            locations = predictions.get_field('locations')
+            locations = locations.view(-1, 3).tolist()
+            rys = predictions.get_field('rys').tolist()
+            for box, label, depth, dim, alpha, center, location, rotation_y, color in zip(boxes, labels, depths, dims, alphas, centers, locations, rys, colors):
+                if type(depth)==list: depth = depth[0]
+                location, rotation_y = ddd2locrot(np.array(center), alpha, np.array(dim), depth, np.array(calib))  
+                box_3d = compute_box_3d(dim, location, rotation_y)
+                box_2d = project_to_image(box_3d, calib)
+                image = draw_box_3d(image, box_2d.astype(np.int), c=color)
+                image = cv2.circle(image, (int(center[0]), int(center[1])), radius=3, color=color, thickness=-1, lineType=cv2.LINE_AA)
+        else:
+            # template = "depth: {:.6f}"
+            for box, label, depth, dim, alpha, center, color in zip(boxes, labels, depths, dims, alphas, centers, colors):
+                if type(depth)==list: depth = depth[0]
+                
+                center = [(box[0] + box[2])/2, (box[1] + box[3])/2]
+                location, rotation_y = ddd2locrot(np.array(center), alpha, np.array(dim), depth, np.array(calib))  
+                box_3d = compute_box_3d(dim, location, rotation_y)
+                box_2d = project_to_image(box_3d, calib)
+                # print('box_2d', box_2d)
+                image = draw_box_3d(image, box_2d.astype(np.int), c=color)
+                image = cv2.circle(image, (int(center[0]), int(center[1])), radius=3, color=color, thickness=-1, lineType=cv2.LINE_AA)
+
         return image
 
     def create_mask_montage(self, image, predictions):
@@ -388,18 +474,221 @@ class COCODemo(object):
         """
         scores = predictions.get_field("scores").tolist()
         labels = predictions.get_field("labels").tolist()
+        colors = self.compute_colors_for_labels(predictions.get_field("labels")).tolist()
         labels = [self.CATEGORIES[i] for i in labels]
         boxes = predictions.bbox
+        
 
         template = "{}: {:.2f}"
-        for box, score, label in zip(boxes, scores, labels):
+        for box, score, label, color in zip(boxes, scores, labels, colors):
             x, y = box[:2]
             s = template.format(label, score)
             cv2.putText(
-                image, s, (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 255, 255), 1
+                image, s, (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5, tuple(color), 1
             )
 
         return image
+
+class COCODatasetDemo(COCODemo):
+    def __init__(
+        self,
+        cfg,
+        confidence_threshold=0.7,
+        show_mask_heatmaps=False,
+        masks_per_dim=2,
+        min_image_size=224,
+        test_only=False,
+    ):
+        COCODemo.__init__(self, cfg, confidence_threshold,
+            show_mask_heatmaps,
+            masks_per_dim,
+            min_image_size,
+        )
+        self.cfg.defrost()
+        self.cfg.TEST.IMS_PER_BATCH = 1 # force 1 image per batch
+        self.cfg.freeze()
+        self.test_only = test_only
+        self.data_loader = make_data_loader(self.cfg, is_train=False, is_distributed=False)[0] # TODO: concat together
+        self.progress = enumerate(tqdm(self.data_loader))
+        self.error_stats = []
+        # self.depth_abs_errors = []
+        # self.depth_rel_errors = []
+
+    def match_datas(self, et_datas, gt_datas):
+        def _iou(boxA, boxB):
+            # determine the (x, y)-coordinates of the intersection rectangle
+            xA = max(boxA[0], boxB[0])
+            yA = max(boxA[1], boxB[1])
+            xB = min(boxA[0]+boxA[2], boxB[0]+boxB[2])
+            yB = min(boxA[1]+boxA[3], boxB[1]+boxB[3])
+            
+            # compute the area of intersection rectangle
+            interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+            
+            # compute the area of both the prediction and ground-truth
+            # rectangles
+            boxAArea = (boxA[2] + 1) * (boxA[3] + 1)
+            boxBArea = (boxB[2] + 1) * (boxB[3] + 1)
+            
+            # compute the intersection over union by taking the intersection
+            # area and dividing it by the sum of prediction + ground-truth
+            # areas - the interesection area
+            iou = interArea / float(boxAArea + boxBArea - interArea)
+            
+            # return the intersection over union value
+            return iou
+
+        # calculate IoU of all boxes
+        match_threshold = 0.4
+        iou_table = {}
+        for i in range(len(et_datas)):
+            for j in range(len(gt_datas)):
+                if et_datas.get_field("labels")[i] != gt_datas.get_field("labels")[j]: continue
+                iou = _iou(et_datas.bbox[i], gt_datas.bbox[j])
+                if iou>match_threshold: iou_table[iou] = (i,j)
+
+        # find the best matches
+        et_match, gt_match = [], []
+        for iou in sorted(iou_table.keys(),reverse=True):
+            if not iou_table[iou][0] in et_match and not iou_table[iou][1] in gt_match:
+                et_match.append(iou_table[iou][0])
+                gt_match.append(iou_table[iou][1])
+                
+        return et_match, gt_match
+
+    def next_data(self, skip_num=0):
+        while skip_num>0:
+            idx, batch = next(self.progress)
+            skip_num -= 1
+        
+        idx, batch = next(self.progress)
+        images, targets, image_ids = batch
+
+        # process image
+        with torch.no_grad():
+            if self.cfg.TEST.BBOX_AUG.ENABLED:
+                predictions = im_detect_bbox_aug(self.model, images, self.device)
+            else:
+                predictions = self.model(images.to(self.device))
+            predictions = [o.to(torch.device("cpu")) for o in predictions]
+
+        # always single image is passed at a time
+        prediction = predictions[0]
+        target, image_id = targets[0], image_ids[0]
+        
+        img_info = self.data_loader.dataset.get_img_info(image_id)
+        image = cv2.imread(os.path.join(self.data_loader.dataset.root, img_info['file_name']))
+
+        if len(target)==0: return image, image
+
+        # reshape prediction (a BoxList) into the original image size
+        width = img_info["width"]
+        height = img_info["height"]
+        focal_length = img_info["camera_params"]["intrinsic"]["fx"]
+        baseline = img_info["camera_params"]["extrinsic"]["baseline"]
+        if img_info.get("calib"):
+            kitti_calib = img_info["calib"]
+        else:
+            kitti_calib = None
+        prediction = prediction.resize((width, height))
+        target = target.resize((width, height))
+
+        if self.cfg.MODEL.DEPTHNET_ON:
+            # get disparity 
+            disp_output = prediction.get_data("disparity")
+            disp_output *= width/256
+            # to numpy
+            disp_img=disp_output[0].cpu().numpy().transpose(1,2,0)
+            cv2.imshow("disparity", disp_img)
+            disp_gt = cv2.imread(os.path.join(self.data_loader.dataset.root, img_info['disp_file_name']), -cv2.IMREAD_ANYDEPTH)
+            disp_gt = (disp_gt-1)/256./256.
+            cv2.imshow("disparity_gt", disp_gt)
+            cv2.waitKey()
+
+        if self.cfg.MODEL.RPN_ONLY: return None, None
+        
+        if prediction.has_field("mask"):
+            # if we have masks, paste the masks in the right position
+            # in the image, as defined by the bounding boxes
+            masks = prediction.get_field("mask")
+            # always single image is passed at a time
+            masks = self.masker([masks], [prediction])[0]
+            prediction.add_field("mask", masks)
+
+        top_predictions = self.select_top_predictions(prediction)
+        # print(top_predictions, target)
+
+        if self.cfg.MODEL.DEPTH_ON or self.cfg.MODEL.BOX3D_ON:
+            et_match, gt_match = self.match_datas(top_predictions, target)
+            et_depths = top_predictions.get_field("depths").tolist()
+            gt_depths = target.get_field("depths").tolist()
+            for i,j in zip(et_match, gt_match):
+                # print(et_depths[i], gt_depths[j])
+                # abs_err = math.fabs(1/et_depths[i][0]- 1/gt_depths[j]) * focal_length # 1 / depth
+                abs_err = math.fabs(et_depths[i][0]- gt_depths[j]) #/ width * focal_length # disp_unity
+                rel_err = math.fabs(et_depths[i][0]- gt_depths[j]) / gt_depths[j] # disp_unity
+                self.error_stats.append({
+                    "abs_err": abs_err,
+                    "rel_err": rel_err,
+                    "gt": gt_depths[j]
+                })
+                # self.depth_abs_errors.append(abs_err)
+                # self.depth_rel_errors.append(rel_err)
+            # if len(self.depth_abs_errors)>0:
+            #     print(sum(self.depth_abs_errors) / len(self.depth_abs_errors))
+            #     print(sum(self.depth_rel_errors) / len(self.depth_rel_errors))
+
+        
+        if not self.test_only:
+            result = image.copy()
+            if self.show_mask_heatmaps:
+                return self.create_mask_montage(result, top_predictions)
+            result = self.overlay_boxes(result, top_predictions)
+            if self.cfg.MODEL.MASK_ON:
+                result = self.overlay_mask(result, top_predictions)
+            # if self.cfg.MODEL.KEYPOINT_ON:
+            #     result = self.overlay_keypoints(result, top_predictions)
+            if self.cfg.MODEL.DEPTH_ON:
+                result = self.overlay_depth(result, top_predictions, f=focal_length)
+            if self.cfg.MODEL.BOX3D_ON:
+                result = self.overlay_box3d(result, top_predictions, calib=kitti_calib)
+                
+            result = self.overlay_class_names(result, top_predictions)
+
+        # process ground truth
+        # gt_pred = []
+        # for obj in target:
+        boxes = target.bbox
+        if target.has_field("mask"):
+            masks = target.get_field("masks").get_mask_tensor().unsqueeze(-1)
+            # masks = self.masker(masks, boxes)
+            target.add_field("mask", masks)
+        if target.has_field("keypoints"):
+            # add logits
+            keypoints = target.get_field("keypoints")
+            keypoints.add_field("logits", torch.tensor([[1.] * len(keypoints)] * len(boxes)))
+        # target.add_field("depths", target.get_field("depths"))
+        target.add_field("scores", torch.tensor([1.] * len(boxes)))
+
+        if not self.test_only:
+            result_gt = image.copy()
+            if self.show_mask_heatmaps:
+                return self.create_mask_montage(result_gt, target)
+            result_gt = self.overlay_boxes(result_gt, target)
+            if self.cfg.MODEL.MASK_ON:
+                result_gt = self.overlay_mask(result_gt, target)
+            # if self.cfg.MODEL.KEYPOINT_ON:
+            #     result_gt = self.overlay_keypoints(result_gt, target)
+            if self.cfg.MODEL.DEPTH_ON:
+                result_gt = self.overlay_depth(result_gt, target, f=focal_length)
+            if self.cfg.MODEL.BOX3D_ON:
+                result_gt = self.overlay_box3d(result_gt, target, calib=kitti_calib)
+            result_gt = self.overlay_class_names(result_gt, target)
+            
+            return result, result_gt
+
+        return None, None
+
 
 import numpy as np
 import matplotlib.pyplot as plt
