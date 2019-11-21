@@ -162,7 +162,7 @@ class RPNModule(torch.nn.Module):
         if self.training:
             return self._forward_train(anchors, objectness, rpn_box_regression, targets)
         else:
-            return self._forward_test(anchors, objectness, rpn_box_regression)
+            return self._forward_test(anchors, objectness, rpn_box_regression, targets)
 
     def _forward_train(self, anchors, objectness, rpn_box_regression, targets):
         if self.cfg.MODEL.RPN_ONLY:
@@ -186,13 +186,18 @@ class RPNModule(torch.nn.Module):
                 "loss_objectness": loss_objectness,
                 "loss_rpn_box_reg": loss_rpn_box_reg,
             }
+            if self.cfg.MODEL.MT_ON:
+                losses.update({
+                    "output_objectness": objectness,
+                    "output_rpn_box_regression": rpn_box_regression,
+                })
         else:
             losses = {}
 
         return boxes, losses
 
-    def _forward_test(self, anchors, objectness, rpn_box_regression):
-        boxes = self.box_selector_test(anchors, objectness, rpn_box_regression)
+    def _forward_test(self, anchors, objectness, rpn_box_regression, targets=None):
+        boxes = self.box_selector_test(anchors, objectness, rpn_box_regression, targets)
         if self.cfg.MODEL.RPN_ONLY:
             # For end-to-end models, the RPN proposals are an intermediate state
             # and don't bother to sort them in decreasing score order. For RPN-only

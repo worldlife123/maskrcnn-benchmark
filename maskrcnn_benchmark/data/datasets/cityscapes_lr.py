@@ -5,6 +5,7 @@ import torchvision
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.segmentation_mask import SegmentationMask
 from maskrcnn_benchmark.structures.keypoint import PersonKeypoints
+from maskrcnn_benchmark.structures.point_3d import PointDepth
 
 import os
 from PIL import Image
@@ -40,15 +41,23 @@ def has_valid_annotation(anno):
 
 class CityScapesLRDataset(torchvision.datasets.coco.CocoDetection):
     def __init__(
-        self, ann_file, root, remove_images_without_annotations, transforms=None
+        self, ann_file, root, is_train, 
+        transforms=None, 
+        depth_key="disp_unity", 
+        input_depth_mode="disp_unity",
+        output_depth_mode="disp_unity", 
+        depth_range=(0,0),
+        lr_test=False
     ):
         super(CityScapesLRDataset, self).__init__(root, ann_file)
         # sort indices for reproducible results
         self.ids = sorted(self.ids)
 
+        self.is_train = is_train
+        
         # filter images without detection annotations
-        self.remove_images_without_annotations = remove_images_without_annotations
-        if remove_images_without_annotations:
+        self.remove_images_without_annotations = is_train
+        if self.remove_images_without_annotations:
             ids = []
             for img_id in self.ids:
                 ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
@@ -67,6 +76,13 @@ class CityScapesLRDataset(torchvision.datasets.coco.CocoDetection):
         }
         self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
         self._transforms = transforms
+
+        self.depth_key = depth_key
+        self.input_depth_mode = input_depth_mode
+        self.output_depth_mode = output_depth_mode
+        self.depth_range = depth_range
+
+        self.lr_test = lr_test
 
     def __getitem__(self, idx):
         # img, anno = super(CityScapesLRDataset, self).__getitem__(idx)
@@ -97,9 +113,26 @@ class CityScapesLRDataset(torchvision.datasets.coco.CocoDetection):
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes
         target = BoxList(boxes, img.size, mode="xywh").convert("xyxy")
 
-        boxes_right = [obj["bbox_right"] for obj in anno]
-        boxes_right = torch.as_tensor(boxes_right).reshape(-1, 4)  # guard against no boxes
-        right_target = BoxList(boxes_right, right_img.size, mode="xywh").convert("xyxy")
+        if anno and "bbox_right" in anno[0]:
+            boxes_right = [obj["bbox_right"] for obj in anno]
+            boxes_right = torch.as_tensor(boxes_right).reshape(-1, 4)  # guard against no boxes
+            right_target = BoxList(boxes_right, img.size, mode="xywh").convert("xyxy")
+        else:
+            boxes_right = [obj["bbox"] for obj in anno]
+            boxes_right = torch.as_tensor(boxes_right).reshape(-1, 4)  # guard against no boxes
+            # transform left to right
+            if anno and self.depth_key in anno[0]:
+                depth = [obj[self.depth_key] for obj in anno]
+                # depth = torch.tensor(depth)
+                depth = PointDepth(depth, img.size, 
+                    focal_length=img_info["camera_params"]["intrinsic"]["fx"], 
+                    baseline=img_info["camera_params"]["extrinsic"]["baseline"], 
+                    min_value=self.depth_range[0],
+                    max_value=self.depth_range[1],
+                    mode=self.input_depth_mode)
+                disp = depth.convert("disp").depths
+                boxes_right[:, 0] -= disp
+            right_target = BoxList(boxes_right, right_img.size, mode="xywh").convert("xyxy")
 
         classes = [obj["category_id"] for obj in anno]
         classes = [self.json_category_id_to_contiguous_id[c] for c in classes]
@@ -119,16 +152,24 @@ class CityScapesLRDataset(torchvision.datasets.coco.CocoDetection):
 
         # if anno and "height_rw" in anno[0]:
         #     depth = [obj["height_rw"] for obj in anno]
-        if anno and "disp_unity" in anno[0]:
-            depth = [obj["disp_unity"] for obj in anno]
-            depth = torch.tensor(depth)
+        if anno and self.depth_key in anno[0]:
+            depth = [obj[self.depth_key] for obj in anno]
+            # depth = torch.tensor(depth)
+            depth = PointDepth(depth, img.size, 
+                focal_length=img_info["camera_params"]["intrinsic"]["fx"], 
+                baseline=img_info["camera_params"]["extrinsic"]["baseline"], 
+                min_value=self.depth_range[0],
+                max_value=self.depth_range[1],
+                mode=self.input_depth_mode)
+            depth = depth.convert(self.output_depth_mode)
             target.add_field("depths", depth)
             right_target.add_field("depths", depth)
 
-        target = target.clip_to_image(remove_empty=True)
-        right_target = right_target.clip_to_image(remove_empty=True)
+        target = target.clip_to_image(remove_empty=False)
+        right_target = right_target.clip_to_image(remove_empty=False)
 
         if self._transforms is not None:
+            # (img, right_img), target = self._transforms((img, right_img), target)
             img, target = self._transforms(img, target)
             right_img, right_target = self._transforms(right_img, right_target)
 
@@ -140,12 +181,17 @@ class CityScapesLRDataset(torchvision.datasets.coco.CocoDetection):
         #     "idx" : idx
         # }
 
+        img = dict(images=img, images_right=right_img, img_info=img_info)
+        target = dict(targets=target, targets_right=right_target)
+
         # tmp fix to enable evaluation
-        if self.remove_images_without_annotations:
-            return img, right_img, target, right_target, idx
-        else:
-            return img, target, idx
+        # if self.is_train or (self.lr_test and not self.is_train):
+        #     return img, right_img, target, right_target, idx
+        # else:
+        #     return img, target, idx
         # return samples
+
+        return img, target, idx
 
     def get_img_info(self, index):
         img_id = self.id_to_img_map[index]

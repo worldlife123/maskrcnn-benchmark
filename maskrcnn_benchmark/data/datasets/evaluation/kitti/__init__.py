@@ -13,5 +13,5 @@ def kitti_evaluation(
     return do_kitti_evaluation(
         dataset=dataset,
         predictions=predictions,
-        output_folder=output_folder,
+        output_folder=output_folder+"/kitti_results",
     )

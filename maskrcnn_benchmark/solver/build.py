@@ -17,9 +17,11 @@ def make_optimizer(cfg, model):
             weight_decay = cfg.SOLVER.WEIGHT_DECAY_BIAS
         params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
         print(key)
-    optimizer = torch.optim.SGD(params, lr, momentum=cfg.SOLVER.MOMENTUM)
+    if cfg.SOLVER.TYPE == "SGD":
+        optimizer = torch.optim.SGD(params, lr, momentum=cfg.SOLVER.MOMENTUM)
+    else:
+        raise NotImplementedError('solver %s not supported' % cfg.SOLVER.TYPE)
     return optimizer
-
 
 def make_lr_scheduler(cfg, optimizer):
     return WarmupMultiStepLR(

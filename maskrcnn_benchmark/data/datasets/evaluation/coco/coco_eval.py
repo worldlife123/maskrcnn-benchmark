@@ -92,6 +92,8 @@ def prepare_for_coco_detection(predictions, dataset):
 
         mapped_labels = [dataset.contiguous_category_id_to_json_id[i] for i in labels]
 
+
+
         coco_results.extend(
             [
                 {
@@ -101,6 +103,7 @@ def prepare_for_coco_detection(predictions, dataset):
                     "score": scores[k],
                 }
                 for k, box in enumerate(boxes)
+                # if hasattr(dataset, "class_filter_list") and mapped_labels[k] in dataset.class_filter_list
             ]
         )
     return coco_results
@@ -208,7 +211,7 @@ def prepare_for_coco_regression(predictions, dataset):
         boxes = prediction.bbox.tolist()
         scores = prediction.get_field('scores').tolist()
         labels = prediction.get_field('labels').tolist()
-        regs = prediction.get_field('depths').tolist()
+        regs = prediction.get_field('depths').tolist() # .convert("depth")
 
         mapped_labels = [dataset.contiguous_category_id_to_json_id[i] for i in labels]
 
@@ -548,8 +551,10 @@ class COCORegeval(COCOeval):
         total_error = 0
         for j, gt in enumerate(gts):
             # create bounds for ignore regions(double the gt bbox)
-            # g = np.array(gt['disp_unity'])
-            g = np.array(gt['depth'])
+            g = np.array(gt['disp_unity'])
+            # g = np.array(gt['disp_base'])
+            # g = np.array(gt['depth'])
+            # g = np.array(gt['height_rw'])
             
             # k1 = np.count_nonzero(vg > 0)
             bb = gt['bbox']
@@ -563,7 +568,7 @@ class COCORegeval(COCOeval):
                 bb_height = dbb[3]
                 # depth_d = d/bb_height
                 depth_d = d
-                print(depth_d,depth_g)
+                # print(depth_d,depth_g)
                 dx = depth_d - depth_g
                 # print(xd, bb_height, xg)
                 # e = np.abs(dx) #/ depth_g

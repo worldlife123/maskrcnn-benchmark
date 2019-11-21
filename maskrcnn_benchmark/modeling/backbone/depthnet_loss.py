@@ -116,14 +116,14 @@ class DepthNetLossComputation(object):
 
         self.ssim = SSIM()
 
-    def compute_reprojection_loss(self, pred, target):
+    def compute_reprojection_loss(self, pred, target, lambda_ssim=0.85):
         """Computes reprojection loss between a batch of predicted and target images
         """
         abs_diff = torch.abs(target - pred)
-        l1_loss = abs_diff.mean(1, True)
+        l1_loss = (1-lambda_ssim) * abs_diff.mean(1, True)
 
-        ssim_loss = self.ssim(pred, target).mean(1, True)
-        reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss
+        ssim_loss = (lambda_ssim * self.ssim(pred, target).mean(1, True)) if lambda_ssim > 0 else 0
+        reprojection_loss =  ssim_loss + l1_loss
 
         return reprojection_loss
 
@@ -135,20 +135,6 @@ class DepthNetLRConsistencyLossComputation(object):
         self.cfg = cfg.clone()
 
         self.ssim = SSIM()
-
-    def scale_pyramid(self, img, num_scales):
-        scaled_imgs = [img]
-        s = img.size()
-        h = s[2]
-        w = s[3]
-        for i in range(num_scales - 1):
-            ratio = 2 ** (i + 1)
-            nh = h // ratio
-            nw = w // ratio
-            scaled_imgs.append(F.interpolate(img,
-                               size=[nh, nw], mode='bilinear',
-                               align_corners=True))
-        return scaled_imgs
 
     def gradient_x(self, img):
         # Pad input to keep output size consistent
@@ -184,16 +170,39 @@ class DepthNetLRConsistencyLossComputation(object):
 
         return disp_smoothness
 
-    def compute_reprojection_loss(self, preds, targets):
+    def compute_smooth_loss(self, preds, targets):
+        """Computes the smoothness loss for a disparity image
+        The color image is used for edge-aware smoothness
+        """
+        losses = []
+        for disp, img in zip(preds, targets):
+            grad_disp_x = torch.abs(disp[:, :, :, :-1] - disp[:, :, :, 1:])
+            grad_disp_y = torch.abs(disp[:, :, :-1, :] - disp[:, :, 1:, :])
+
+            grad_img_x = torch.mean(torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:]), 1, keepdim=True)
+            grad_img_y = torch.mean(torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :]), 1, keepdim=True)
+
+            grad_disp_x *= torch.exp(-grad_img_x)
+            grad_disp_y *= torch.exp(-grad_img_y)
+
+            losses.append(grad_disp_x.mean() + grad_disp_y.mean())
+
+        return sum(losses)
+
+    def compute_reprojection_loss(self, preds, targets, lambda_ssim=0.85):
         """Computes reprojection loss between a batch of predicted and target images
         """
         losses = []
         for pred, target in zip(preds, targets):
             abs_diff = torch.abs(target - pred)
-            l1_loss = abs_diff.mean()#(1, True)
+            # l1_loss = abs_diff.mean()#(1, True)
+            # ssim_loss = self.ssim(pred, target).mean()#(1, True)
+            # reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss
 
-            ssim_loss = self.ssim(pred, target).mean()#(1, True)
-            reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss
+            l1_loss = (1-lambda_ssim) * abs_diff.mean()
+            ssim_loss = (lambda_ssim * self.ssim(pred, target).mean()) if lambda_ssim > 0 else 0
+            reprojection_loss =  ssim_loss + l1_loss
+
             losses.append(reprojection_loss)
 
         return sum(losses)
@@ -233,7 +242,7 @@ class DepthNetLRConsistencyLossComputation(object):
             flow_field = torch.stack((x_base + x_shifts, y_base), dim=3)
             # In grid_sample coordinates are assumed to be between -1 and 1
             pred = F.grid_sample(image, 2*flow_field - 1, mode='bilinear',
-                                padding_mode='zeros')
+                                padding_mode='border')
 
             # print(image.shape, pred.shape)
 
@@ -242,15 +251,9 @@ class DepthNetLRConsistencyLossComputation(object):
         return preds
 
 
-    def __call__(self, disp_left, disp_right, images_left, images_right):
+    def __call__(self, disp_left, disp_right, images_left_pyramid, images_right_pyramid):
         # TODO: support for multiscale prediction
         # print(images_left.shape, images_right.shape)
-        images_left_pyramid = self.scale_pyramid(images_left, len(disp_left))
-        images_right_pyramid = self.scale_pyramid(images_right, len(disp_right))
-
-        # invert disp
-        disp_left.reverse()
-        disp_right.reverse()
 
         images_warp_right = self.generate_images_pred(images_left_pyramid, disp_left, images_right_pyramid, invert_disp=True)
         images_warp_left = self.generate_images_pred(images_right_pyramid, disp_right, images_left_pyramid, invert_disp=False)
@@ -270,11 +273,67 @@ class DepthNetLRConsistencyLossComputation(object):
         #     for i in range(len(disp_left_smoothness))]
         # disp_right_loss = [torch.mean(torch.abs(disp_right_smoothness[i])) / 2 ** i 
         #     for i in range(len(disp_right_smoothness))]
-        # smoothness_loss = sum(disp_left_loss + disp_right_loss) * self.cfg.MODEL.DEPTHNET.LOSS_SMOOTHNESS
+        disp_left_smooth_loss = self.compute_smooth_loss(disp_left, images_left_pyramid)
+        disp_right_smooth_loss = self.compute_smooth_loss(disp_right, images_right_pyramid)
+        smoothness_loss = (disp_left_smooth_loss + disp_right_smooth_loss) * self.cfg.MODEL.DEPTHNET.LOSS_SMOOTHNESS
 
-        losses = dict(image_loss=image_loss, lr_consistency_loss=lr_consistency_loss) #, smoothness_loss=smoothness_loss)
+        losses = dict(image_loss=image_loss, lr_consistency_loss=lr_consistency_loss, smoothness_loss=smoothness_loss)
         return losses
 
+class DepthNetImageLRConsistencyLossComputation(DepthNetLRConsistencyLossComputation):
+
+    def scale_pyramid(self, img, num_scales, start_scale=1):
+        scaled_imgs = []
+        s = img.size()
+        h = s[2]
+        w = s[3]
+        for i in range(num_scales):
+            ratio = start_scale * (2 ** i)
+            nh = h // ratio
+            nw = w // ratio
+            scaled_imgs.append(F.interpolate(img,
+                               size=[nh, nw], mode='bilinear',
+                               align_corners=True))
+        return scaled_imgs
+
+    def __call__(self, disp_left, disp_right, images_left, images_right):
+        # TODO: support for multiscale prediction
+        # print(images_left.shape, images_right.shape)
+        images_left_pyramid = self.scale_pyramid(images_left, len(disp_left), start_scale=4)
+        images_right_pyramid = self.scale_pyramid(images_right, len(disp_right), start_scale=4)
+
+        return super(DepthNetImageLRConsistencyLossComputation, self).__call__(disp_left, disp_right, images_left_pyramid, images_right_pyramid)
+
+class DepthNetImageFeatureLRConsistencyLossComputation(DepthNetLRConsistencyLossComputation):
+
+    def scale_pyramid(self, img, num_scales, start_scale=1):
+        scaled_imgs = []
+        s = img.size()
+        h = s[2]
+        w = s[3]
+        for i in range(num_scales):
+            ratio = start_scale * (2 ** i)
+            nh = h // ratio
+            nw = w // ratio
+            scaled_imgs.append(F.interpolate(img,
+                               size=[nh, nw], mode='bilinear',
+                               align_corners=True))
+        return scaled_imgs
+
+    def __call__(self, disp_left, disp_right, images_left, images_right, features_left, features_right):
+        # TODO: support for multiscale prediction
+        # print(images_left.shape, images_right.shape)
+        images_left_pyramid = self.scale_pyramid(images_left, len(disp_left), start_scale=4)
+        images_right_pyramid = self.scale_pyramid(images_right, len(disp_right), start_scale=4)
+
+        disp_left = disp_left + disp_left # repeat 2 times
+        disp_right = disp_right + disp_right
+        images_left_pyramid = images_left_pyramid + features_left
+        images_right_pyramid = images_right_pyramid + features_right
+
+        return super(DepthNetImageFeatureLRConsistencyLossComputation, self).__call__(disp_left, disp_right, images_left_pyramid, images_right_pyramid)
+
+
 def build_depthnet_loss(cfg):
-    depth_loss_layer = DepthNetLRConsistencyLossComputation(cfg)
+    depth_loss_layer = DepthNetImageLRConsistencyLossComputation(cfg)
     return depth_loss_layer

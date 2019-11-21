@@ -30,13 +30,13 @@ def keep_only_positive_boxes(boxes):
         positive_inds.append(inds_mask)
     return positive_boxes, positive_inds
 
-class ROIDepthHead(torch.nn.Module):
+class ROIBox3dHead(torch.nn.Module):
     """
     Generic Box Head class.
     """
 
     def __init__(self, cfg, in_channels):
-        super(ROIDepthHead, self).__init__()
+        super(ROIBox3dHead, self).__init__()
         self.cfg = cfg.clone()
         
         self.feature_extractor = make_roi_box3d_feature_extractor(cfg, in_channels)
@@ -78,10 +78,14 @@ class ROIDepthHead(torch.nn.Module):
             result = self.post_processor(depth_logits, proposals)
             return x, result, {}
 
+        if self.cfg.MODEL.MT_ON:
+            proposals.add_field('box3d_logits', depth_logits)
+
+
         if not self.cfg.MODEL.ROI_BOX3D_HEAD.FREEZE_WEIGHT:
             loss_box3d = self.loss_evaluator(proposals, depth_logits, targets)
 
-            return x, all_proposals, dict(loss_box3d=loss_box3d)
+            return x, all_proposals, loss_box3d
 
         return x, all_proposals, dict()
 
@@ -92,4 +96,4 @@ def build_roi_box3d_head(cfg, in_channels):
     By default, uses ROIBoxHead, but if it turns out not to be enough, just register a new class
     and make it a parameter in the config
     """
-    return ROIDepthHead(cfg, in_channels)
+    return ROIBox3dHead(cfg, in_channels)

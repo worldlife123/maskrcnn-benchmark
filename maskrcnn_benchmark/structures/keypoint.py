@@ -58,6 +58,21 @@ class Keypoints(object):
             keypoints.add_field(k, v)
         return keypoints
 
+    def affine(self, t, s):
+        x, y, v = self.keypoints[..., 0], self.keypoints[..., 1], self.keypoints[..., 2]
+        t_center = (0.5 * self.size[0] + 0.5, 0.5 * self.size[1] + 0.5)
+        t_img = (t[0] * self.size[0], t[1] * self.size[1])
+        t_x = ((x - t_center[0] )*s + t_img[0] + t_center[0]).clamp(min=0, max=self.size[0])
+        t_y = ((y - t_center[1] )*s + t_img[1] + t_center[1]).clamp(min=0, max=self.size[1])
+        t_v = (v.ge(0.5) * t_x.ne(0) * t_x.ne(self.size[0]) * t_y.ne(0) * t_y.ne(self.size[1])).float()
+        t_kp = torch.cat(
+            (t_x, t_y, t_v), dim=-1
+        )
+        keypoints = type(self)(t_kp, self.size, self.mode)
+        for k, v in self.extra_fields.items():
+            keypoints.add_field(k, v)
+        return keypoints
+
     def to(self, *args, **kwargs):
         keypoints = type(self)(self.keypoints.to(*args, **kwargs), self.size, self.mode)
         for k, v in self.extra_fields.items():

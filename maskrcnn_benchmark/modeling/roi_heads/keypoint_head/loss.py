@@ -83,6 +83,7 @@ class KeypointRCNNLossComputation(object):
             matched_targets = self.match_targets_to_proposals(
                 proposals_per_image, targets_per_image
             )
+            if not matched_targets.has_field("keypoints"): continue
             matched_idxs = matched_targets.get_field("matched_idxs")
 
             labels_per_image = matched_targets.get_field("labels")

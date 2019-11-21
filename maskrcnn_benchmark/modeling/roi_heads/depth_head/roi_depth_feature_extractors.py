@@ -5,13 +5,13 @@ from torch.nn import functional as F
 
 from maskrcnn_benchmark.modeling import registry
 from maskrcnn_benchmark.modeling.backbone import resnet
-from maskrcnn_benchmark.modeling.poolers import Pooler
+from maskrcnn_benchmark.modeling.poolers import Pooler, PoolerLevelMix
 from maskrcnn_benchmark.modeling.make_layers import group_norm
 from maskrcnn_benchmark.modeling.make_layers import make_fc
 
 @registry.ROI_DEPTH_FEATURE_EXTRACTORS.register("ResNet50Conv5ROIFeatureExtractor")
 class ResNet50Conv5ROIFeatureExtractor(nn.Module):
-    def __init__(self, config, in_channels):
+    def __init__(self, config, in_channels, out_channels=None):
         super(ResNet50Conv5ROIFeatureExtractor, self).__init__()
 
         resolution = config.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
@@ -51,7 +51,7 @@ class FPN2MLPFeatureExtractor(nn.Module):
     Heads for FPN for classification
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, out_channels=None):
         super(FPN2MLPFeatureExtractor, self).__init__()
 
         resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
@@ -89,7 +89,7 @@ class FPNXconv1fcFeatureExtractor(nn.Module):
     Heads for FPN for classification
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, out_channels=None):
         super(FPNXconv1fcFeatureExtractor, self).__init__()
 
         resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
@@ -154,7 +154,7 @@ class FPNUNetDecoderFeatureExtractor(nn.Module):
     Heads for FPN for classification
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, out_channels=None):
         super(FPNUNetDecoderFeatureExtractor, self).__init__()
 
         resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
@@ -243,7 +243,7 @@ class FPNUNetDecoderXConv1fcFeatureExtractor(nn.Module):
     Heads for FPN for classification
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, out_channels=None):
         super(FPNUNetDecoderXConv1fcFeatureExtractor, self).__init__()
 
         resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
@@ -326,9 +326,97 @@ class FPNUNetDecoderXConv1fcFeatureExtractor(nn.Module):
         x = F.relu(self.fc6(x))
         return x
 
+@registry.ROI_DEPTH_FEATURE_EXTRACTORS.register("FPN2MLPLevelMixFeatureExtractor")
+class FPN2MLPLevelMixFeatureExtractor(nn.Module):
+    """
+    Heads for FPN for classification
+    """
 
-def make_roi_depth_feature_extractor(cfg, in_channels):
+    def __init__(self, cfg, in_channels, out_channels=None):
+        super(FPN2MLPLevelMixFeatureExtractor, self).__init__()
+
+        resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
+        scales = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_SCALES
+        sampling_ratio = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_SAMPLING_RATIO
+        pooler = PoolerLevelMix(
+            output_size=(resolution, resolution),
+            scales=scales,
+            sampling_ratio=sampling_ratio,
+        )
+        input_size = in_channels * resolution ** 2
+        representation_size = cfg.MODEL.ROI_DEPTH_HEAD.MLP_HEAD_DIM
+        use_gn = cfg.MODEL.ROI_DEPTH_HEAD.USE_GN
+        self.pooler = pooler
+        self.fc6 = make_fc(input_size*len(scales), representation_size, use_gn)
+        self.fc7 = make_fc(representation_size, representation_size, use_gn)
+        self.out_channels = representation_size
+
+    def forward(self, x, proposals):
+        x = self.pooler(x, proposals)
+        x = torch.cat(x, dim=1)
+        if x.size(0)==0: 
+            x = x.view(x.size(0), x.size(1)*x.size(2)*x.size(3))
+        else:
+            x = x.view(x.size(0), -1)
+
+        x = F.relu(self.fc6(x))
+        x = F.relu(self.fc7(x))
+
+        return x
+
+@registry.ROI_DEPTH_FEATURE_EXTRACTORS.register("FPN2MLPLevelMix3DConvFeatureExtractor")
+class FPN2MLPLevelMix3DConvFeatureExtractor(nn.Module):
+    """
+    Heads for FPN for classification
+    """
+
+    def __init__(self, cfg, in_channels, out_channels=None):
+        super(FPN2MLPLevelMix3DConvFeatureExtractor, self).__init__()
+
+        resolution = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_RESOLUTION
+        scales = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_SCALES
+        sampling_ratio = cfg.MODEL.ROI_DEPTH_HEAD.POOLER_SAMPLING_RATIO
+        pooler = PoolerLevelMix(
+            output_size=(resolution, resolution),
+            scales=scales,
+            sampling_ratio=sampling_ratio,
+        )
+        input_size = in_channels * resolution ** 2
+        representation_size = cfg.MODEL.ROI_DEPTH_HEAD.MLP_HEAD_DIM if out_channels is None else out_channels
+        use_gn = cfg.MODEL.ROI_DEPTH_HEAD.USE_GN
+        self.resolution = resolution
+        self.pooler = pooler
+        self.conv3d = nn.Conv3d(in_channels, in_channels, (len(scales), 1, 1), bias=False)
+        if cfg.MODEL.ROI_DEPTH_HEAD.INPUT_MASK_FEATURES:
+            input_size *= 2
+        self.fc6 = make_fc(input_size, representation_size, use_gn)
+        self.fc7 = make_fc(representation_size, representation_size, use_gn)
+        self.out_channels = representation_size
+
+    def forward(self, x, proposals, extra_features=None):
+        x = self.pooler(x, proposals)
+        x = torch.cat([f.view(f.size(0), f.size(1), 1, f.size(2), f.size(3)) for f in x], dim=2)
+        if x.size(0)==0: 
+            x = x[:,:,0,:,:]
+        else:
+            x = self.conv3d(x).squeeze(2)
+        if not extra_features is None:
+            # x += F.interpolate(extra_features, [self.resolution, self.resolution], mode="bilinear")
+            x = torch.cat([x, F.interpolate(extra_features, [self.resolution, self.resolution], mode="bilinear")], dim=1)
+        if x.size(0)==0: 
+            x = x.view(x.size(0), x.size(1)*x.size(2)*x.size(3))
+        else:
+            x = x.view(x.size(0), -1)
+
+        x = F.relu(self.fc6(x))
+        x = F.relu(self.fc7(x))
+
+        return x
+
+
+
+def make_roi_depth_feature_extractor(cfg, in_channels, out_channels=None):
     func = registry.ROI_DEPTH_FEATURE_EXTRACTORS[
         cfg.MODEL.ROI_DEPTH_HEAD.FEATURE_EXTRACTOR
     ]
-    return func(cfg, in_channels)
+    return func(cfg, in_channels, out_channels=out_channels)

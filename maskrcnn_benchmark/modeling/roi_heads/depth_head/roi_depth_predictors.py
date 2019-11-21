@@ -8,6 +8,8 @@ from maskrcnn_benchmark.modeling.utils import cat
 class FPNDepthPredictor(nn.Module):
     def __init__(self, cfg, in_channels):
         super(FPNDepthPredictor, self).__init__()
+        self.cfg = cfg
+
         num_classes = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES
         representation_size = in_channels
 
@@ -15,10 +17,18 @@ class FPNDepthPredictor(nn.Module):
         num_bbox_reg_classes = 1 if cfg.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG else num_classes
         self.depth_pred = nn.Linear(representation_size, num_bbox_reg_classes)
 
+        if cfg.MODEL.ROI_DEPTH_HEAD.SIGMOID_OUTPUT:
+            self.sigmoid = nn.Sigmoid()
+
         # nn.init.normal_(self.cls_score.weight, std=0.01)
+        # if cfg.MODEL.ROI_DEPTH_HEAD.SIGMOID_OUTPUT:
+        #     nn.init.normal_(self.depth_pred.weight, std=0.01)
+        #     nn.init.constant_(self.depth_pred.bias, 0.)
+        # else:
         nn.init.normal_(self.depth_pred.weight, std=0.01)
-        for l in [self.depth_pred]:
-            nn.init.constant_(l.bias, 0)
+        nn.init.constant_(self.depth_pred.bias, 0)
+        # for l in [self.depth_pred]:
+        #     nn.init.constant_(l.bias, 0)
 
     def forward(self, x):
         # if x.ndimension() == 4:
@@ -26,10 +36,12 @@ class FPNDepthPredictor(nn.Module):
         #     x = x.view(x.size(0), -1)
         # scores = self.cls_score(x)
         depth = self.depth_pred(x)
+        if self.cfg.MODEL.ROI_DEPTH_HEAD.SIGMOID_OUTPUT:
+            depth = self.sigmoid(depth)
 
         return depth
 
-@registry.ROI_DEPTH_PREDICTOR.register("FPNDepthLRPredictor")
+# @registry.ROI_DEPTH_PREDICTOR.register("FPNDepthLRPredictor")
 class FPNDepthLRPredictor(nn.Module):
     def __init__(self, cfg, in_channels):
         super(FPNDepthLRPredictor, self).__init__()

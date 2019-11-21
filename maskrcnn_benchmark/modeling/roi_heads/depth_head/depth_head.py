@@ -1,6 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from .roi_depth_feature_extractors import make_roi_depth_feature_extractor
@@ -49,7 +50,7 @@ class ROIDepthHead(torch.nn.Module):
                 for p in m.parameters():
                     p.requires_grad = False
 
-    def forward(self, features, proposals, targets=None):
+    def forward(self, features, proposals, targets=None, extra_features=None):
         """
         Arguments:
             features (list[Tensor]): feature-maps from possibly several levels
@@ -71,19 +72,29 @@ class ROIDepthHead(torch.nn.Module):
             x = features
             x = x[torch.cat(positive_inds, dim=0)]
         else:
-            x = self.feature_extractor(features, proposals)
+            if self.cfg.MODEL.ROI_DEPTH_HEAD.INPUT_MASK_FEATURES:
+                x = self.feature_extractor(features, proposals, extra_features=extra_features)
+            else:
+                x = self.feature_extractor(features, proposals)
+
         depth_logits = self.predictor(x)
 
         if not self.training:
             result = self.post_processor(depth_logits, proposals)
             return x, result, {}
 
+        loss_dict = dict()
+        
+        if self.cfg.MODEL.MT_ON:
+            loss_dict.update(dict(depth_logits=depth_logits))
+            # loss_dict.update(dict(depth_logits=x))
+            # proposals.add_field('depth_logits', depth_logits)
+
         if not self.cfg.MODEL.ROI_DEPTH_HEAD.FREEZE_WEIGHT:
             loss_depth = self.loss_evaluator(proposals, depth_logits, targets)
+            loss_dict.update(dict(loss_depth=loss_depth))
 
-            return x, all_proposals, dict(loss_depth=loss_depth)
-
-        return x, all_proposals, dict()
+        return x, all_proposals, loss_dict
 
 
 def build_roi_depth_head(cfg, in_channels):

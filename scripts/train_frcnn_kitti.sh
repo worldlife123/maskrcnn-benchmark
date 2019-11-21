@@ -1,0 +1,1 @@
+python tools/train_net.py --config-file configs/kitti/e2e_faster_rcnn_R_50_FPN_1x_cocoft.yaml

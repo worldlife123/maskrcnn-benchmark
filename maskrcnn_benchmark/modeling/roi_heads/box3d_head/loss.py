@@ -26,7 +26,7 @@ class MaskRCNNBox3dLossComputation(object):
         matched_idxs = self.proposal_matcher(match_quality_matrix)
         # print(match_quality_matrix, matched_idxs)
         # Mask RCNN needs "labels" and "masks "fields for creating the targets
-        target = target.copy_with_fields(["labels", "masks", "centers", "depths", "dims", "rotbins", "rotregs"], skip_missing=True)
+        target = target.copy_with_fields(["labels", "centers", "depths", "dims", "rotbins", "rotregs"], skip_missing=True)
         # get the targets corresponding GT for each proposal
         # NB: need to clamp the indices because we can have a single
         # GT in the image, and matched_idxs can be -2, which goes
@@ -43,6 +43,12 @@ class MaskRCNNBox3dLossComputation(object):
             matched_targets = self.match_targets_to_proposals(
                 proposals_per_image, targets_per_image
             )
+            if not matched_targets.has_field("depths")\
+                or not matched_targets.has_field("dims")\
+                or not matched_targets.has_field("rotbins")\
+                or not matched_targets.has_field("rotregs")\
+                or not matched_targets.has_field("centers"):
+                continue
             matched_idxs = matched_targets.get_field("matched_idxs")
 
             labels_per_image = matched_targets.get_field("labels")
@@ -145,7 +151,7 @@ class MaskRCNNBox3dLossComputation(object):
         rotreg_targets = cat(rotreg_targets, dim=0)
 
         if self.cfg.MODEL.ROI_BOX3D_HEAD.REG_LOGARITHM:
-            depth_targets = torch.log(depth_targets)
+            depth_targets = torch.log(torch.abs(depth_targets)+1)
 
         depth_targets = depth_targets*self.cfg.MODEL.ROI_BOX3D_HEAD.REG_AMPLIFIER
 
@@ -197,7 +203,13 @@ class MaskRCNNBox3dLossComputation(object):
 
         # print(center_loss, depth_loss, dim_loss, rot_loss)
 
-        return (depth_loss + dim_loss + rot_loss) * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_AMPLIFIER
+        # return (depth_loss + dim_loss + rot_loss) * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_AMPLIFIER
+        return dict(
+            loss_box3d_center=center_loss * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_CENTER_MULTIPLIER,
+            loss_box3d_depth=depth_loss * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_DEPTH_MULTIPLIER,
+            loss_box3d_dim=dim_loss * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_DIMENSION_MULTIPLIER,
+            loss_box3d_rot=rot_loss * self.cfg.MODEL.ROI_BOX3D_HEAD.LOSS_ROTATION_MULTIPLIER,
+            )
 
 def make_roi_box3d_loss_evaluator(cfg):
     matcher = Matcher(

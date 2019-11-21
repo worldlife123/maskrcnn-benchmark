@@ -6,6 +6,10 @@ import time
 import torch
 import torch.distributed as dist
 
+from .trainer_mt import do_train as trainer_mt
+from .trainer_gan import do_train as trainer_gan
+from .trainer_lr import do_train as trainer_lr
+
 from maskrcnn_benchmark.utils.comm import get_world_size
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
@@ -37,6 +41,7 @@ def reduce_loss_dict(loss_dict):
 
 
 def do_train(
+    cfg,
     model,
     data_loader,
     optimizer,
@@ -66,10 +71,24 @@ def do_train(
 
         scheduler.step()
 
+        # compability
+        kwargs = dict()
+        if isinstance(images, dict):
+            tmp = images.pop("images")
+            for k in images:
+                images[k] = (images[k]).to(device)
+            kwargs.update(images)
+            images = tmp
         images = images.to(device)
+        if isinstance(targets, dict):
+            tmp = targets.pop("targets")
+            for k in targets:
+                targets[k] = [target.to(device) for target in targets[k]]
+            kwargs.update(targets)
+            targets = tmp
         targets = [target.to(device) for target in targets]
 
-        loss_dict = model(images, targets)
+        loss_dict = model(images, targets, **kwargs)["losses"]
 
         losses = sum(loss for loss in loss_dict.values())
 
@@ -110,16 +129,21 @@ def do_train(
                     memory=torch.cuda.max_memory_allocated() / 1024.0 / 1024.0,
                 )
             )
+            
 
             if tflogger:
                 for name in loss_dict_reduced:
                     tflogger.add_scalar("losses/"+name, loss_dict_reduced[name], iteration)
                     tflogger.add_scalar("loss_sum", losses_reduced, iteration)
 
+            # torch.cuda.empty_cache()
+
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
+
+        # torch.cuda.empty_cache()
 
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
@@ -128,3 +152,12 @@ def do_train(
             total_time_str, total_training_time / (max_iter)
         )
     )
+
+def make_trainer(cfg):
+    _META_TRAINER = {
+        "default": do_train,
+        "lr": trainer_lr,
+        "gan": trainer_gan,
+        "mt": trainer_mt,
+    }
+    return _META_TRAINER[cfg.TRAINER.TYPE]

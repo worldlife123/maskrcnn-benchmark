@@ -37,6 +37,7 @@ def reduce_loss_dict(loss_dict):
 
 
 def do_train(
+    cfg,
     model,
     data_loader,
     optimizer,
@@ -73,7 +74,7 @@ def do_train(
         images_right = images_right.to(device)
         targets_right = [target.to(device) for target in targets_right]
 
-        loss_dict = model(images_left, images_right, targets_left, targets_right)
+        loss_dict = model(images_left, targets_left, images_right, targets_right)["losses"]
 
         # if tflogger: tflogger.add_graph(model, [images_left.tensors])
 

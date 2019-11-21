@@ -175,6 +175,21 @@ def clip_weights_from_pretrain_of_coco_to_cityscapes(f, out_file):
 	print("f: {}\nout_file: {}".format(f, out_file))
 	torch.save(m, out_file)
 
+def clip_roi_head_from_pretrain_of_coco(f, out_file):
+	checkpoint = torch.load(f)
+	m = checkpoint['model']
+
+	names_to_clip = []
+	for name in m:
+		if "roi_heads" in name:
+			names_to_clip.append(name)
+
+	for name in names_to_clip:
+		m.pop(name)
+
+	print("f: {}\nout_file: {}".format(f, out_file))
+	torch.save(m, out_file)
+
 if __name__=="__main__":
     # clip_weights_from_pretrain_of_coco_to_cityscapes(
     #     "checkpoints/pretrained/e2e_faster_rcnn_R_50_FPN_1x.pth",
@@ -183,4 +198,8 @@ if __name__=="__main__":
     clip_weights_from_pretrain_of_coco_to_cityscapes(
         "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x.pth",
         "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_cityscapes.pth"
+    )
+    clip_roi_head_from_pretrain_of_coco(
+        "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x.pth",
+        "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_cityscapes_wo_roiheads.pth"
     )

@@ -60,3 +60,33 @@ class FPNPredictor(nn.Module):
 def make_roi_box_predictor(cfg, in_channels):
     func = registry.ROI_BOX_PREDICTOR[cfg.MODEL.ROI_BOX_HEAD.PREDICTOR]
     return func(cfg, in_channels)
+
+class FPNLRPredictor(nn.Module):
+    def __init__(self, cfg, in_channels):
+        super(FPNLRPredictor, self).__init__()
+        num_classes = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        representation_size = in_channels
+
+        self.cls_score = nn.Linear(representation_size, num_classes)
+        num_bbox_reg_classes = 2 if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG else num_classes
+        self.bbox_pred_left = nn.Linear(representation_size, num_bbox_reg_classes * 4)
+        self.bbox_pred_right = nn.Linear(representation_size, num_bbox_reg_classes * 4)
+
+        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.bbox_pred_left.weight, std=0.001)
+        nn.init.normal_(self.bbox_pred_right.weight, std=0.001)
+        for l in [self.cls_score, self.bbox_pred_left, self.bbox_pred_right]:
+            nn.init.constant_(l.bias, 0)
+
+    def forward(self, x):
+        if x.ndimension() == 4:
+            assert list(x.shape[2:]) == [1, 1]
+            x = x.view(x.size(0), -1)
+        scores = self.cls_score(x)
+        bbox_deltas_left = self.bbox_pred_left(x)
+        bbox_deltas_right = self.bbox_pred_right(x)
+        return scores, bbox_deltas_left, bbox_deltas_right
+
+def make_roi_box_lr_predictor(cfg, in_channels):
+    func = FPNLRPredictor
+    return func(cfg, in_channels)

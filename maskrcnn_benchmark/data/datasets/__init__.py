@@ -7,5 +7,6 @@ from .cityscapes_lr import CityScapesLRDataset
 from .voc import PascalVOCDataset
 from .concat_dataset import ConcatDataset
 from .kitti_3d import KITTI3DDataset
+from .kitti_lr_3d import KITTILR3DDataset
 
-__all__ = ["DukeMTMCDataset", "CityScapesWDDataset", "CityScapesWDUDataset", "CityScapesWHDataset", "CityScapesLRDataset", "COCODataset", "ConcatDataset", "PascalVOCDataset", "KITTI3DDataset"]
+__all__ = ["DukeMTMCDataset", "CityScapesWDDataset", "CityScapesWDUDataset", "CityScapesWHDataset", "CityScapesLRDataset", "COCODataset", "ConcatDataset", "PascalVOCDataset", "KITTI3DDataset", "KITTILR3DDataset"]

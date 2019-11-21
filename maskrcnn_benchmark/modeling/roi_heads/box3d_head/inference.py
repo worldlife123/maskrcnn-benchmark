@@ -65,9 +65,9 @@ class Box3dPostProcessor(nn.Module):
             # decode centers
             center = bbox.bbox[:, 0:2] + center * (bbox.bbox[:, 2:4]-bbox.bbox[:, 0:2])
             center_box = BoxList(torch.cat((center,center), dim=1), box.size, mode="xyxy")
-            if self.cfg.MODEL.ROI_BOX3D_HEAD.REG_LOGARITHM:
-                depth = torch.exp(depth)
             depth = depth/self.cfg.MODEL.ROI_BOX3D_HEAD.REG_AMPLIFIER
+            if self.cfg.MODEL.ROI_BOX3D_HEAD.REG_LOGARITHM:
+                depth = torch.exp(torch.abs(depth)) - 1
             bbox.add_field("centers", center_box)
             bbox.add_field("depths", depth)
             bbox.add_field("dims", dim)

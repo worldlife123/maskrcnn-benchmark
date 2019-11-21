@@ -155,6 +155,10 @@ class BinaryMaskList(object):
         resized_size = width, height
         return BinaryMaskList(resized_masks, resized_size)
 
+    # def affine(self, t, s):
+    #     # TODO:
+    #     return self
+
     def convert_to_polygon(self):
         if self.masks.numel() == 0:
             return PolygonList([], self.size)
@@ -322,6 +326,18 @@ class PolygonInstance(object):
 
         return PolygonInstance(scaled_polygons, size=size)
 
+    def affine(self, t, s):
+        t_center = (0.5 * self.size[0] + 0.5, 0.5 * self.size[1] + 0.5)
+        t_img = (t[0] * self.size[0], t[1] * self.size[1])
+        transformed_polygons = []
+        for poly in self.polygons:
+            p = poly.clone()
+            p[0::2] = ((p[0::2] - t_center[0])*s + t_img[0] + t_center[0]).clamp(min=0, max=self.size[0])
+            p[1::2] = ((p[1::2] - t_center[1])*s + t_img[1] + t_center[1]).clamp(min=0, max=self.size[1])
+            transformed_polygons.append(p)
+
+        return PolygonInstance(transformed_polygons, size=self.size)
+
     def convert_to_binarymask(self):
         width, height = self.size
         # formatting for COCO PythonAPI
@@ -429,6 +445,14 @@ class PolygonList(object):
         resized_size = size
         return PolygonList(resized_polygons, resized_size)
 
+    def affine(self, t, s):
+        transformed_polygons = []
+        for polygon in self.polygons:
+            transformed_polygons.append(polygon.affine(t, s))
+
+        transformed_size = self.size
+        return PolygonList(transformed_polygons, transformed_size)
+
     def to(self, *args, **kwargs):
         return self
 
@@ -522,6 +546,11 @@ class SegmentationMask(object):
         resized_instances = self.instances.resize(size)
         resized_size = size
         return SegmentationMask(resized_instances, resized_size, self.mode)
+
+    def affine(self, t, s):
+        transformed_instances = self.instances.affine(t, s)
+        transformed_size = transformed_instances.size
+        return SegmentationMask(transformed_instances, transformed_size, self.mode)
 
     def to(self, *args, **kwargs):
         return self

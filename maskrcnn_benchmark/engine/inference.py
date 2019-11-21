@@ -15,19 +15,38 @@ from ..utils.timer import Timer, get_time_str
 from .bbox_aug import im_detect_bbox_aug
 
 
-def compute_on_dataset(model, data_loader, device, timer=None):
+def compute_on_dataset(model, data_loader, device, timer=None, input_targets=False):
     model.eval()
     results_dict = {}
     cpu_device = torch.device("cpu")
     for _, batch in enumerate(tqdm(data_loader)):
         images, targets, image_ids = batch
+        # compability
+        kwargs = dict()
+        if isinstance(images, dict):
+            tmp = images.pop("images")
+            for k in images:
+                images[k] = (images[k]).to(device)
+            kwargs.update(images)
+            images = tmp
+        images = images.to(device)
+        if isinstance(targets, dict):
+            tmp = targets.pop("targets")
+            for k in targets:
+                targets[k] = tuple([target.to(device) for target in targets[k]])
+            kwargs.update(targets)
+            targets = tmp
+        targets = tuple([target.to(device) for target in targets])
         with torch.no_grad():
             if timer:
                 timer.tic()
             if cfg.TEST.BBOX_AUG.ENABLED:
                 output = im_detect_bbox_aug(model, images, device)
             else:
-                output = model(images.to(device))
+                if input_targets:
+                    output = model(images, targets, **kwargs)["result"]
+                else:
+                    output = model(images, **kwargs)["result"]
             if timer:
                 if not cfg.MODEL.DEVICE == 'cpu':
                     torch.cuda.synchronize()
@@ -71,6 +90,7 @@ def inference(
         expected_results=(),
         expected_results_sigma_tol=4,
         output_folder=None,
+        input_targets=False,
 ):
     # convert to a torch.device for efficiency
     device = torch.device(device)
@@ -85,7 +105,7 @@ def inference(
         total_timer = Timer()
         inference_timer = Timer()
         total_timer.tic()
-        predictions = compute_on_dataset(model, data_loader, device, inference_timer)
+        predictions = compute_on_dataset(model, data_loader, device, inference_timer, input_targets)
         # wait for all processes to complete before measuring the time
         synchronize()
         total_time = total_timer.toc()

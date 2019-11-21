@@ -1,10 +1,55 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
 
+import numbers, math
+
 # transpose
 FLIP_LEFT_RIGHT = 0
 FLIP_TOP_BOTTOM = 1
 
+# from PyTorch
+def _get_inverse_affine_matrix(center, angle, translate, scale, shear):
+    # Helper method to compute inverse matrix for affine transformation
+
+    # As it is explained in PIL.Image.rotate
+    # We need compute INVERSE of affine transformation matrix: M = T * C * RSS * C^-1
+    # where T is translation matrix: [1, 0, tx | 0, 1, ty | 0, 0, 1]
+    #       C is translation matrix to keep center: [1, 0, cx | 0, 1, cy | 0, 0, 1]
+    #       RSS is rotation with scale and shear matrix
+    #       RSS(a, scale, shear) = [ cos(a + shear_y)*scale    -sin(a + shear_x)*scale     0]
+    #                              [ sin(a + shear_y)*scale    cos(a + shear_x)*scale     0]
+    #                              [     0                  0          1]
+    # Thus, the inverse is M^-1 = C * RSS^-1 * C^-1 * T^-1
+
+    angle = math.radians(angle)
+    if isinstance(shear, (tuple, list)) and len(shear) == 2:
+        shear = [math.radians(s) for s in shear]
+    elif isinstance(shear, numbers.Number):
+        shear = math.radians(shear)
+        shear = [shear, 0]
+    else:
+        raise ValueError(
+            "Shear should be a single value or a tuple/list containing " +
+            "two values. Got {}".format(shear))
+    scale = 1.0 / scale
+
+    # Inverted rotation matrix with scale and shear
+    d = math.cos(angle + shear[0]) * math.cos(angle + shear[1]) + \
+        math.sin(angle + shear[0]) * math.sin(angle + shear[1])
+    matrix = [
+        math.cos(angle + shear[0]), math.sin(angle + shear[0]), 0,
+        -math.sin(angle + shear[1]), math.cos(angle + shear[1]), 0
+    ]
+    matrix = [scale / d * m for m in matrix]
+
+    # Apply inverse of translation and of center translation: RSS^-1 * C^-1 * T^-1
+    matrix[2] += matrix[0] * (-center[0] - translate[0]) + matrix[1] * (-center[1] - translate[1])
+    matrix[5] += matrix[3] * (-center[0] - translate[0]) + matrix[4] * (-center[1] - translate[1])
+
+    # Apply center translation: C * RSS^-1 * C^-1 * T^-1
+    matrix[2] += center[0]
+    matrix[5] += center[1]
+    return matrix
 
 class BoxList(object):
     """
@@ -119,6 +164,8 @@ class BoxList(object):
                 if not isinstance(v, torch.Tensor):
                     v = v.resize(size, *args, **kwargs)
                 bbox.add_field(k, v)
+            for k, v in self.extra_datas.items():
+                bbox.add_data(k, v)
             return bbox
 
         ratio_width, ratio_height = ratios
@@ -175,6 +222,7 @@ class BoxList(object):
             if not isinstance(v, torch.Tensor):
                 v = v.transpose(method)
             bbox.add_field(k, v)
+        bbox.extra_datas = self.extra_datas
         return bbox.convert(self.mode)
 
     def crop(self, box):
@@ -203,6 +251,34 @@ class BoxList(object):
             if not isinstance(v, torch.Tensor):
                 v = v.crop(box)
             bbox.add_field(k, v)
+        bbox.extra_datas = self.extra_datas
+        return bbox.convert(self.mode)
+
+    def affine(self, t, s):
+        xmin, ymin, xmax, ymax = self._split_into_xyxy()
+        t_center = (0.5 * self.size[0] + 0.5, 0.5 * self.size[1] + 0.5)
+        t_img = (t[0] * self.size[0], t[1] * self.size[1])
+        # scale first then transform (same as torchvision.transforms.affine)
+        t_xmin = ((xmin - t_center[0] )*s + t_img[0] + t_center[0]).clamp(min=0, max=self.size[0])
+        t_ymin = ((ymin - t_center[1] )*s + t_img[1] + t_center[1]).clamp(min=0, max=self.size[1])
+        t_xmax = ((xmax - t_center[0] )*s + t_img[0] + t_center[0]).clamp(min=0, max=self.size[0])
+        t_ymax = ((ymax - t_center[1] )*s + t_img[1] + t_center[1]).clamp(min=0, max=self.size[1])
+        t_box = torch.cat(
+            (t_xmin, t_ymin, t_xmax, t_ymax), dim=-1
+        )
+        # filter invalid boxes
+        if (xmax - xmin).mean()>0: # TODO: tmp fix for point2d
+            invalid_ind = (torch.abs(t_xmin - t_xmax)>1) & (torch.abs(t_ymin - t_ymax)>1)
+            t_box = t_box[invalid_ind.view(-1), :]
+        else:
+            invalid_ind = None
+        bbox = BoxList(t_box, self.size, mode="xyxy")
+        for k, v in self.extra_fields.items():
+            if not invalid_ind is None: v = v[invalid_ind.view(-1)]
+            if not isinstance(v, torch.Tensor):
+                v = v.affine(t, s)
+            bbox.add_field(k, v)
+        bbox.extra_datas = self.extra_datas
         return bbox.convert(self.mode)
 
     # Tensor-like methods
@@ -213,6 +289,7 @@ class BoxList(object):
             if hasattr(v, "to"):
                 v = v.to(device)
             bbox.add_field(k, v)
+        bbox.extra_datas = self.extra_datas
         return bbox
 
     def __getitem__(self, item):
@@ -258,6 +335,7 @@ class BoxList(object):
                 bbox.add_field(field, self.get_field(field))
             elif not skip_missing:
                 raise KeyError("Field '{}' not found in {}".format(field, self))
+        bbox.extra_datas = self.extra_datas
         return bbox
 
     def __repr__(self):

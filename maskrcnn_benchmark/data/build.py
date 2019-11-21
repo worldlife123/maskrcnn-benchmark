@@ -11,7 +11,7 @@ from maskrcnn_benchmark.utils.miscellaneous import save_labels
 from . import datasets as D
 from . import samplers
 
-from .collate_batch import BatchCollator, BatchCollator2Input, BBoxAugCollator
+from .collate_batch import BatchCollator, BatchCollator2Input, BatchCollatorSelfAdapt, BBoxAugCollator
 from .transforms import build_transforms
 
 
@@ -36,10 +36,12 @@ def build_dataset(dataset_list, transforms, dataset_catalog, is_train=True):
         args = data["args"]
         # for COCODataset, we want to remove images without annotations
         # during training
-        if data["factory"] == "COCODataset" or data["factory"] == "DukeMTMCDataset" or data["factory"] == "CityScapesWDDataset" or data["factory"] == "CityScapesWHDataset" or data["factory"] == "CityScapesLRDataset":
+        if data["factory"] == "COCODataset" or data["factory"] == "DukeMTMCDataset" :
             args["remove_images_without_annotations"] = is_train
         if data["factory"] == "PascalVOCDataset":
             args["use_difficult"] = not is_train
+        if data["factory"] == "KITTI3DDataset" or data["factory"] == "KITTILR3DDataset" or data["factory"] == "CityScapesWDDataset" or data["factory"] == "CityScapesWHDataset" or data["factory"] == "CityScapesLRDataset":
+            args["is_train"] = is_train
         args["transforms"] = transforms
         # make dataset from factory
         dataset = factory(**args)
@@ -167,10 +169,12 @@ def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0):
         )
         if not is_train and cfg.TEST.BBOX_AUG.ENABLED:
             collator = BBoxAugCollator()
-        elif is_train and cfg.INPUT.LR_IMAGE:
-            collator = BatchCollator2Input(cfg.DATALOADER.SIZE_DIVISIBILITY)
+        # with the new BatchCollatorSelfAdapt, this is not needed
+        # elif is_train and cfg.INPUT.LR_IMAGE:
+        #     collator = BatchCollator2Input(cfg.DATALOADER.SIZE_DIVISIBILITY)
         else:
             collator = BatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY)
+            # collator = BatchCollatorSelfAdapt(cfg.DATALOADER.SIZE_DIVISIBILITY)
         num_workers = cfg.DATALOADER.NUM_WORKERS
         data_loader = torch.utils.data.DataLoader(
             dataset,

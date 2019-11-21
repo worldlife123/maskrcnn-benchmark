@@ -22,12 +22,16 @@ _C = CN()
 
 _C.MODEL = CN()
 _C.MODEL.RPN_ONLY = False
+_C.MODEL.USE_LR_RPN = False
+_C.MODEL.USE_LR_ROI_HEADS = False
 _C.MODEL.MASK_ON = False
 _C.MODEL.RETINANET_ON = False
 _C.MODEL.DEPTHNET_ON = False
+_C.MODEL.GEOMNET_ON = False
 _C.MODEL.KEYPOINT_ON = False
 _C.MODEL.DEPTH_ON = False
 _C.MODEL.BOX3D_ON = False
+_C.MODEL.MT_ON = False
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
 _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
@@ -66,6 +70,11 @@ _C.INPUT.HUE = 0.0
 _C.INPUT.HORIZONTAL_FLIP_PROB_TRAIN = 0.5
 _C.INPUT.VERTICAL_FLIP_PROB_TRAIN = 0.0
 
+# Augmentation
+_C.INPUT.RANDOM_SCALE = (1., 1.)
+_C.INPUT.RANDOM_TRANSLATE = (0., 0.)
+
+# LR Input
 _C.INPUT.LR_IMAGE = False
 
 # -----------------------------------------------------------------------------
@@ -178,6 +187,38 @@ _C.MODEL.RPN.RPN_HEAD = "SingleConvRPNHead"
 # Freeze weight
 _C.MODEL.RPN.FREEZE_WEIGHT = False
 
+# RPN LR
+_C.MODEL.RPN_LR = CN()
+_C.MODEL.RPN_LR.MONO_HEAD_ON = True
+_C.MODEL.RPN_LR.MONO_HEAD_FREEZE_WEIGHT = False
+_C.MODEL.RPN_LR.STEREO_HEAD_ON = True
+_C.MODEL.RPN_LR.STEREO_HEAD_FREEZE_WEIGHT = False
+_C.MODEL.RPN_LR.MONO_HEAD_TEST = False
+_C.MODEL.RPN_LR.SINGLE_HEAD_TEST = False # deprecated
+_C.MODEL.RPN_LR.LOSS_HEAD_CONSISTENCY = 0.0
+_C.MODEL.RPN_LR.REFERENCE_BASELINE = 0.57 # kitti baseline
+
+# ROI_HEADS LR
+_C.MODEL.ROI_HEADS_LR = CN()
+_C.MODEL.ROI_HEADS_LR.MONO_HEAD_ON = True
+_C.MODEL.ROI_HEADS_LR.MONO_HEAD_FREEZE_WEIGHT = False
+_C.MODEL.ROI_HEADS_LR.STEREO_HEAD_ON = True
+_C.MODEL.ROI_HEADS_LR.STEREO_HEAD_FREEZE_WEIGHT = False
+_C.MODEL.ROI_HEADS_LR.MONO_HEAD_TEST = False
+_C.MODEL.ROI_HEADS_LR.SINGLE_HEAD_TEST = False # deprecated
+_C.MODEL.ROI_HEADS_LR.LOSS_FEATURE_CONSISTENCY = 0.0
+_C.MODEL.ROI_HEADS_LR.LOSS_PREDICTOR_CONSISTENCY = 0.0
+_C.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE = 0.57 # currently should be same as _C.MODEL.RPN_LR.REFERENCE_BASELINE
+
+# ---------------------------------------------------------------------------- #
+# GAN options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.GAN = CN()
+_C.MODEL.GAN.DISCRIMINATOR_ARCHITECTURE = "PixelDiscriminator"
+_C.MODEL.GAN.GENERATOR_ARCHITECTURE = "SpatialTransformerGenerator"
+_C.MODEL.GAN.GAN_MODE = "lsgan"
+_C.MODEL.GAN.LAMBDA_L1 = 1.0
+
 
 # ---------------------------------------------------------------------------- #
 # ROI HEADS options
@@ -282,6 +323,7 @@ _C.MODEL.ROI_DEPTH_HEAD.POOLER_SCALES = (1.0 / 16,)
 _C.MODEL.ROI_DEPTH_HEAD.NUM_CLASSES = 81
 _C.MODEL.ROI_DEPTH_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
 _C.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG = False
+_C.MODEL.ROI_DEPTH_HEAD.SIGMOID_OUTPUT = False
 # Hidden layer dimension when using an MLP for the RoI box head
 _C.MODEL.ROI_DEPTH_HEAD.MLP_HEAD_DIM = 1024
 # GN
@@ -290,6 +332,9 @@ _C.MODEL.ROI_DEPTH_HEAD.USE_GN = False
 _C.MODEL.ROI_DEPTH_HEAD.DILATION = 1
 _C.MODEL.ROI_DEPTH_HEAD.CONV_HEAD_DIM = 256
 _C.MODEL.ROI_DEPTH_HEAD.NUM_STACKED_CONVS = 4
+# Extra features
+_C.MODEL.ROI_DEPTH_HEAD.INPUT_BOX_FEATURES = False
+_C.MODEL.ROI_DEPTH_HEAD.INPUT_MASK_FEATURES = False
 # Freeze weight
 _C.MODEL.ROI_DEPTH_HEAD.FREEZE_WEIGHT = False
 # decoded proposal
@@ -299,8 +344,10 @@ _C.MODEL.ROI_DEPTH_HEAD.LOSS_AMPLIFIER = 1.0
 # reg amplifier
 _C.MODEL.ROI_DEPTH_HEAD.REG_AMPLIFIER = 1.0
 _C.MODEL.ROI_DEPTH_HEAD.REG_LOGARITHM = False
-
+# LR training amplifier
 _C.MODEL.ROI_DEPTH_HEAD.LR_REGULARIZATION_AMPLIFIER = 1.0
+# use only lr detection to estimate depth
+_C.MODEL.ROI_DEPTH_HEAD.DEPTH_FROM_LR_DETECTION = False
 
 _C.MODEL.ROI_BOX3D_HEAD = CN()
 _C.MODEL.ROI_BOX3D_HEAD.FEATURE_EXTRACTOR = "ResNet50Conv5ROIFeatureExtractor"
@@ -325,6 +372,10 @@ _C.MODEL.ROI_BOX3D_HEAD.FREEZE_WEIGHT = False
 _C.MODEL.ROI_BOX3D_HEAD.USE_DECODED_PROPOSAL = False
 # Loss amplifier
 _C.MODEL.ROI_BOX3D_HEAD.LOSS_AMPLIFIER = 1.0
+_C.MODEL.ROI_BOX3D_HEAD.LOSS_CENTER_MULTIPLIER = 0.0
+_C.MODEL.ROI_BOX3D_HEAD.LOSS_DEPTH_MULTIPLIER = 1.0
+_C.MODEL.ROI_BOX3D_HEAD.LOSS_ROTATION_MULTIPLIER = 1.0
+_C.MODEL.ROI_BOX3D_HEAD.LOSS_DIMENSION_MULTIPLIER = 1.0
 # reg amplifier
 _C.MODEL.ROI_BOX3D_HEAD.REG_AMPLIFIER = 1.0
 _C.MODEL.ROI_BOX3D_HEAD.REG_LOGARITHM = False
@@ -484,19 +535,65 @@ _C.MODEL.FBNET.MASK_HEAD_STRIDE = 0
 _C.MODEL.FBNET.RPN_HEAD_BLOCKS = 0
 _C.MODEL.FBNET.RPN_BN_TYPE = ""
 
-
 # depthnet
 _C.MODEL.DEPTHNET = CN()
+# monodepth2
+_C.MODEL.DEPTHNET.MONODEPTH2_ON = False
+_C.MODEL.DEPTHNET.MONODEPTH2 = CN()
+# _C.MODEL.DEPTHNET.USE_PRETRAINED_MONODEPTH2 = False
+_C.MODEL.DEPTHNET.MONODEPTH2.ENCODER = CN()
+_C.MODEL.DEPTHNET.MONODEPTH2.ENCODER.PRETRAINED_WEIGHT = ""
+_C.MODEL.DEPTHNET.MONODEPTH2.ENCODER.FREEZE_WEIGHT = False
+_C.MODEL.DEPTHNET.MONODEPTH2.DECODER = CN()
+_C.MODEL.DEPTHNET.MONODEPTH2.DECODER.PRETRAINED_WEIGHT = ""
+_C.MODEL.DEPTHNET.MONODEPTH2.DECODER.FREEZE_WEIGHT = False
+# structure
+_C.MODEL.DEPTHNET.DECODER_OUTPUT_CHANNELS = 256
+_C.MODEL.DEPTHNET.DECODER_COARSE_TO_FINE = False
 # losses
 _C.MODEL.DEPTHNET.LOSS_IMAGE = 1.0
+_C.MODEL.DEPTHNET.LOSS_FEATURE = 1.0
 _C.MODEL.DEPTHNET.LOSS_LR_CONSISTENCY = 1.0
 _C.MODEL.DEPTHNET.LOSS_SMOOTHNESS = 1.0
 _C.MODEL.DEPTHNET.FREEZE_WEIGHT = False
 
+# geomnet
+_C.MODEL.GEOMNET = CN()
+# structure
+# losses
+_C.MODEL.GEOMNET.FREEZE_WEIGHT = False
+
+# ---------------------------------------------------------------------------- #
+# Mean Teacher options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.MT = CN()
+_C.MODEL.MT.FEATURE_CONSISTENCY_WEIGHT = 1.0
+_C.MODEL.MT.RPN_LOGITS_CONSISTENCY_WEIGHT = 1.0
+_C.MODEL.MT.ROI_LOGITS_CONSISTENCY_WEIGHT = 1.0
+_C.MODEL.MT.RPN_LOGITS_FROM_STUDENT_FEATURE = False
+_C.MODEL.MT.ROI_LOGITS_FROM_STUDENT_FEATURE = False
+# ---------------------------------------------------------------------------- #
+# Trainer
+# ---------------------------------------------------------------------------- #
+_C.TRAINER = CN()
+_C.TRAINER.TYPE = "default"
+# lr trainer
+_C.TRAINER.LR = CN() # deprecated
+# gan trainer
+_C.TRAINER.GAN = CN() # WIP
+# Mean Teacher trainer
+_C.TRAINER.MT = CN()
+_C.TRAINER.MT.CONSISTENCY_WEIGHT = 100
+_C.TRAINER.MT.CONSISTENCY_RAMPUP = 500
+_C.TRAINER.MT.EMA_DECAY = 0.999
+_C.TRAINER.MT.EMA_DECAY_START = 0
+_C.TRAINER.MT.EMA_DECAY_WARMUP = 1000
 # ---------------------------------------------------------------------------- #
 # Solver
 # ---------------------------------------------------------------------------- #
 _C.SOLVER = CN()
+_C.SOLVER.TYPE = "SGD"
+
 _C.SOLVER.MAX_ITER = 40000
 
 _C.SOLVER.BASE_LR = 0.001
@@ -536,6 +633,10 @@ _C.TEST.EXPECTED_RESULTS_SIGMA_TOL = 4
 _C.TEST.IMS_PER_BATCH = 8
 # Number of detections per image
 _C.TEST.DETECTIONS_PER_IMG = 100
+# Input targets for adding to rpn output
+_C.TEST.INPUT_TARGETS = False
+# Input target proposals instead of rpn output
+_C.TEST.TARGETS_AS_PROPOSALS = False
 
 # ---------------------------------------------------------------------------- #
 # Test-time augmentations for bounding box detection

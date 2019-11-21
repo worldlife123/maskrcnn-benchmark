@@ -30,6 +30,29 @@ def boxlist_nms(boxlist, nms_thresh, max_proposals=-1, score_field="scores"):
     boxlist = boxlist[keep]
     return boxlist.convert(mode)
 
+def boxlist_nms_idx(boxlist, nms_thresh, max_proposals=-1, score_field="scores"):
+    """
+    Performs non-maximum suppression on a boxlist, with scores specified
+    in a boxlist field via score_field.
+
+    Arguments:
+        boxlist(BoxList)
+        nms_thresh (float)
+        max_proposals (int): if > 0, then only the top max_proposals are kept
+            after non-maximum suppression
+        score_field (str)
+    """
+    if nms_thresh <= 0:
+        return boxlist
+    mode = boxlist.mode
+    boxlist = boxlist.convert("xyxy")
+    boxes = boxlist.bbox
+    score = boxlist.get_field(score_field)
+    keep = _box_nms(boxes, score, nms_thresh)
+    if max_proposals > 0:
+        keep = keep[: max_proposals]
+    # boxlist = boxlist[keep]
+    return keep
 
 def remove_small_boxes(boxlist, min_size):
     """
@@ -44,7 +67,7 @@ def remove_small_boxes(boxlist, min_size):
     _, _, ws, hs = xywh_boxes.unbind(dim=1)
     keep = (
         (ws >= min_size) & (hs >= min_size)
-    ).nonzero().squeeze(1)
+    ).nonzero().squeeze(1) # TODO: the bit-and operation may cause RuntimeError: copy_if failed to synchronize: device-side assert triggered
     return boxlist[keep]
 
 
@@ -127,3 +150,19 @@ def cat_boxlist(bboxes):
         cat_boxes.add_field(field, data)
 
     return cat_boxes
+
+def boxlist_union(boxlist1, boxlist2):
+    # calculate proposals_union
+    assert(boxlist1.size == boxlist2.size)
+    bbox_left, bbox_right = boxlist1.convert("xyxy").bbox, boxlist2.convert("xyxy").bbox
+    # print(bbox_left, bbox_right)
+    new_bbox = torch.stack([
+        torch.min(bbox_left[:,0], bbox_right[:,0]),
+        torch.min(bbox_left[:,1], bbox_right[:,1]),
+        torch.max(bbox_left[:,2], bbox_right[:,2]),
+        torch.max(bbox_left[:,3], bbox_right[:,3]),
+    ], dim=1)
+    # print(new_bbox)
+    return BoxList(new_bbox, boxlist1.size, mode="xyxy")
+    
+

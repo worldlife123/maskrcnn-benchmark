@@ -15,7 +15,7 @@ class ROIBoxHead(torch.nn.Module):
     Generic Box Head class.
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, is_mt=False):
         super(ROIBoxHead, self).__init__()
         self.cfg = cfg.clone()
         self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
@@ -23,12 +23,15 @@ class ROIBoxHead(torch.nn.Module):
             cfg, self.feature_extractor.out_channels)
         self.post_processor = make_roi_box_post_processor(cfg)
         self.loss_evaluator = make_roi_box_loss_evaluator(cfg)
+
+        self.is_mt = is_mt
+
         if self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
             for m in [self.feature_extractor, self.predictor]:
                 for p in m.parameters():
                     p.requires_grad = False
 
-    def forward(self, features, proposals, targets=None):
+    def forward(self, features, proposals, targets=None, proposals_sampled=None):
         """
         Arguments:
             features (list[Tensor]): feature-maps from possibly several levels
@@ -46,8 +49,10 @@ class ROIBoxHead(torch.nn.Module):
         if self.training:
             # Faster R-CNN subsamples during training the proposals with a fixed
             # positive / negative ratio
-            with torch.no_grad():
-                proposals = self.loss_evaluator.subsample(proposals, targets)
+            if proposals_sampled is None:
+                with torch.no_grad():
+                    proposals_sampled = self.loss_evaluator.subsample(proposals, targets)
+            proposals = proposals_sampled
 
         # extract features that will be fed to the final classifier. The
         # feature_extractor generally corresponds to the pooler + heads
@@ -59,9 +64,10 @@ class ROIBoxHead(torch.nn.Module):
             result = self.post_processor((class_logits, box_regression), proposals)
             return x, result, {}
 
+        # TODO: loss is not needed for mean teacher when MT_ON
         if not self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
             loss_classifier, loss_box_reg = self.loss_evaluator(
-                [class_logits], [box_regression]
+                [class_logits], [box_regression], proposals
             )
 
         if self.cfg.MODEL.ROI_BOX_HEAD.OUTPUT_DECODED_PROPOSAL:
@@ -79,21 +85,25 @@ class ROIBoxHead(torch.nn.Module):
                 if len(boxes) > 0:
                     proposals[i].bbox = boxes.reshape(-1, 4)
 
-        if not self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
-            return (
-                x,
-                proposals,
-                dict(loss_classifier=loss_classifier, loss_box_reg=loss_box_reg),
-            )
+        loss_dict = dict()
+        
+        if self.cfg.MODEL.MT_ON:
+            loss_dict.update(class_logits=class_logits, box_logits=box_regression)
+            # loss_dict.update(class_logits=x, box_logits=x)
+            # proposals_sampled.add_field('class_logits', class_logits)
+            # proposals_sampled.add_field('box_logits', box_regression)
 
-        return x, proposals, dict()
+        if not self.is_mt and not self.cfg.MODEL.ROI_BOX_HEAD.FREEZE_WEIGHT:
+            loss_dict.update(dict(loss_classifier=loss_classifier, loss_box_reg=loss_box_reg))
+
+        return x, proposals, loss_dict
         
 
 
-def build_roi_box_head(cfg, in_channels):
+def build_roi_box_head(cfg, in_channels, is_mt=False):
     """
     Constructs a new box head.
     By default, uses ROIBoxHead, but if it turns out not to be enough, just register a new class
     and make it a parameter in the config
     """
-    return ROIBoxHead(cfg, in_channels)
+    return ROIBoxHead(cfg, in_channels, is_mt)

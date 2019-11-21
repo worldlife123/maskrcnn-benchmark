@@ -1,7 +1,7 @@
-OUTPUT_DIR: "./checkpoints/kitti/e2e_mask_rcnn_box3d_R_50_FPN_1x_cocoft_3"
+OUTPUT_DIR: "./checkpoints/kitti/e2e_mask_rcnn_box3d_R_50_FPN_1x_cocoft_2"
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_cityscapes.pth"
+  WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_kitti.pth"
   BACKBONE:
     CONV_BODY: "R-50-FPN"
     # FREEZE_CONV_BODY_AT: 5
@@ -25,7 +25,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 9
+    NUM_CLASSES: 4
     # OUTPUT_DECODED_PROPOSAL: True
     # FREEZE_WEIGHT: True
   ROI_MASK_HEAD:
@@ -47,7 +47,7 @@ MODEL:
     RESOLUTION: 28
     NUM_CLASSES: 1
     SHARE_BOX_FEATURE_EXTRACTOR: False
-  KEYPOINT_ON: True
+  # KEYPOINT_ON: True
   ROI_BOX3D_HEAD:
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -55,9 +55,9 @@ MODEL:
     POOLER_RESOLUTION: 7
     POOLER_SAMPLING_RATIO: 2
     SHARE_BOX_FEATURE_EXTRACTOR: False
-    # REG_LOGARITHM: True
+    REG_LOGARITHM: True
     REG_AMPLIFIER: 0.1
-    LOSS_AMPLIFIER: 0.5
+    LOSS_AMPLIFIER: 0.2
     # FREEZE_WEIGHT: True
   BOX3D_ON: True
 INPUT:
@@ -65,17 +65,20 @@ INPUT:
   # MAX_SIZE_TRAIN: 1224
   MIN_SIZE_TEST: 384
   # MAX_SIZE_TEST: 1224
+  RANDOM_TRANSLATE: (-0.1, 0.1)
+  RANDOM_SCALE: (0.8, 1.2)
 DATASETS:
   TRAIN: ("kitti_3d_3dop_box3d_train",)
   TEST: ("kitti_3d_3dop_box3d_val",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
+  NUM_WORKERS: 1
 SOLVER:
   BASE_LR: 0.01
-  IMS_PER_BATCH: 8
+  IMS_PER_BATCH: 16
   WEIGHT_DECAY: 0.0001
-  STEPS: (22000,)
-  MAX_ITER: 30000
-  CHECKPOINT_PERIOD: 5000
+  STEPS: (15000,)
+  MAX_ITER: 20000
+  CHECKPOINT_PERIOD: 10000
 TEST:
   IMS_PER_BATCH: 1

@@ -101,7 +101,7 @@ def run_test(cfg, model, distributed):
         iou_types = iou_types + ("segm",)
     if cfg.MODEL.KEYPOINT_ON:
         iou_types = iou_types + ("keypoints",)
-    if cfg.MODEL.DEPTH_ON:
+    if cfg.MODEL.DEPTH_ON or cfg.MODEL.BOX3D_ON:
         iou_types = iou_types + ("depth",)
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
@@ -122,6 +122,7 @@ def run_test(cfg, model, distributed):
             expected_results=cfg.TEST.EXPECTED_RESULTS,
             expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
             output_folder=output_folder,
+            input_targets=cfg.TEST.INPUT_TARGETS,
         )
         synchronize()
 

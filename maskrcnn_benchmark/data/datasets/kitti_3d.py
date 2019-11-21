@@ -5,6 +5,7 @@ import torchvision
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.segmentation_mask import SegmentationMask
 from maskrcnn_benchmark.structures.keypoint import PersonKeypoints, BoxCenterKeypoints
+from maskrcnn_benchmark.structures.point_3d import PointDepth
 
 import math
 
@@ -39,45 +40,69 @@ def has_valid_annotation(anno):
 
 class KITTI3DDataset(torchvision.datasets.coco.CocoDetection):
     def __init__(
-        self, ann_file, root, remove_images_without_annotations=True, remove_truncated=True, transforms=None
+        self, ann_file, root, is_train, 
+        class_filter_list=[], 
+        remove_truncated=False, 
+        transforms=None, 
+        depth_key="depth", 
+        input_depth_mode="depth",
+        output_depth_mode="depth", 
+        depth_range=(0,0)
     ):
         super(KITTI3DDataset, self).__init__(root, ann_file)
         # sort indices for reproducible results
         self.ids = sorted(self.ids)
 
         # filter images without detection annotations
-        if remove_images_without_annotations:
-            ids = []
-            for img_id in self.ids:
-                ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
-                anno = self.coco.loadAnns(ann_ids)
-                if has_valid_annotation(anno):
-                    ids.append(img_id)
-            self.ids = ids
+        self.is_train = is_train
+
+        self.class_filter_list = [cat['id'] for cat in self.coco.cats.values() if cat['name'] in class_filter_list]
 
         self.categories = {cat['id']: cat['name'] for cat in self.coco.cats.values()}
+        print(self.categories)
 
+        catIds = self.class_filter_list if len(class_filter_list)>0 else self.coco.getCatIds()
         self.json_category_id_to_contiguous_id = {
-            v: i + 1 for i, v in enumerate(self.coco.getCatIds())
+            v: i + 1 for i, v in enumerate(catIds)
         }
         self.contiguous_category_id_to_json_id = {
             v: k for k, v in self.json_category_id_to_contiguous_id.items()
         }
         self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
 
+        self.remove_images_without_annotations = is_train
+        if self.remove_images_without_annotations:
+            ids = []
+            for img_id in self.ids:
+                ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
+                anno = self.coco.loadAnns(ann_ids)
+                if has_valid_annotation(anno) and len([obj for obj in anno if obj["category_id"] in self.class_filter_list])>0:
+                    ids.append(img_id)
+            self.ids = ids
+
         self.remove_truncated = remove_truncated
+
+        self.depth_key = depth_key
+        self.input_depth_mode = input_depth_mode
+        self.output_depth_mode = output_depth_mode
+        self.depth_range = depth_range
 
         self._transforms = transforms
 
     def __getitem__(self, idx):
         img, anno = super(KITTI3DDataset, self).__getitem__(idx)
 
+        coco = self.coco
+        img_id = self.ids[idx]
+        img_info = coco.loadImgs(img_id)[0]
+
         # filter crowd annotations
         # TODO might be better to add an extra field
         if self.remove_truncated:
             anno = [obj for obj in anno if obj["truncated"] == 0]
-        else:
-            anno = [obj for obj in anno]
+
+        if len(self.class_filter_list) > 0:
+            anno = [obj for obj in anno if obj["category_id"] in self.class_filter_list]
 
         boxes = [obj["bbox"] for obj in anno]
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes
@@ -98,9 +123,16 @@ class KITTI3DDataset(torchvision.datasets.coco.CocoDetection):
             keypoints = PersonKeypoints(keypoints, img.size)
             target.add_field("keypoints", keypoints)
 
-        if anno and "depth" in anno[0]:
-            depth = [obj["depth"] for obj in anno]
-            depth = torch.tensor(depth)
+        if anno and self.depth_key in anno[0]:
+            depth = [obj[self.depth_key] for obj in anno]
+            # depth = torch.tensor(depth)
+            depth = PointDepth(depth, img.size, 
+                focal_length=img_info["camera_params"]["intrinsic"]["fx"], 
+                baseline=img_info["camera_params"]["extrinsic"]["baseline"], 
+                min_value=self.depth_range[0],
+                max_value=self.depth_range[1],
+                mode=self.input_depth_mode)
+            depth = depth.convert(self.output_depth_mode)
             target.add_field("depths", depth)
 
         if anno and "dim" in anno[0]:

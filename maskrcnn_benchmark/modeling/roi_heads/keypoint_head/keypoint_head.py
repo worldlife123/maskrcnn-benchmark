@@ -42,6 +42,10 @@ class ROIKeypointHead(torch.nn.Module):
             result = self.post_processor(kp_logits, proposals)
             return x, result, {}
 
+        if self.cfg.MODEL.MT_ON:
+            proposals.add_field('keypoint_logits', kp_logits)
+
+
         loss_kp = self.loss_evaluator(proposals, kp_logits)
 
         return x, proposals, dict(loss_kp=loss_kp)

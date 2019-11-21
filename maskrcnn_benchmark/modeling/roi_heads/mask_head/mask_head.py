@@ -78,12 +78,17 @@ class ROIMaskHead(torch.nn.Module):
             result = self.post_processor(mask_logits, proposals)
             return x, result, {}
 
+        loss_dict = dict()
+
+        if self.cfg.MODEL.MT_ON:
+            # proposals.add_field('mask_logits', mask_logits)
+            loss_dict.update(dict(mask_logits=mask_logits))
+
         if not self.cfg.MODEL.ROI_MASK_HEAD.FREEZE_WEIGHT:
             loss_mask = self.loss_evaluator(proposals, mask_logits, targets)
+            loss_dict.update(dict(loss_mask=loss_mask))
 
-            return x, all_proposals, dict(loss_mask=loss_mask)
-
-        return x, all_proposals, dict()
+        return x, all_proposals, loss_dict
 
 
 def build_roi_mask_head(cfg, in_channels):

@@ -20,7 +20,7 @@ from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.solver import make_lr_scheduler
 from maskrcnn_benchmark.solver import make_optimizer
 from maskrcnn_benchmark.engine.inference import inference
-from maskrcnn_benchmark.engine.trainer import do_train
+from maskrcnn_benchmark.engine.trainer import make_trainer #do_train
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
@@ -81,7 +81,10 @@ def train(cfg, local_rank, distributed):
 
     tflogger = SummaryWriter(log_dir=os.path.join(output_dir, "logs"))
 
-    do_train(
+    trainer = make_trainer(cfg)
+
+    trainer(
+        cfg,
         model,
         data_loader,
         optimizer,
@@ -105,7 +108,7 @@ def run_test(cfg, model, distributed):
         iou_types = iou_types + ("segm",)
     if cfg.MODEL.KEYPOINT_ON:
         iou_types = iou_types + ("keypoints",)
-    if cfg.MODEL.DEPTH_ON:
+    if cfg.MODEL.DEPTH_ON or cfg.MODEL.BOX3D_ON:
         iou_types = iou_types + ("depth",)
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
@@ -126,6 +129,7 @@ def run_test(cfg, model, distributed):
             expected_results=cfg.TEST.EXPECTED_RESULTS,
             expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
             output_folder=output_folder,
+            input_targets=cfg.TEST.INPUT_TARGETS,
         )
         synchronize()
 

@@ -13,8 +13,21 @@ from maskrcnn_benchmark import layers as L
 from maskrcnn_benchmark.utils import cv2_util
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.engine.bbox_aug import im_detect_bbox_aug
+from maskrcnn_benchmark.structures.point_3d import PointDepth
 
 from ddd_utils import *
+
+def _height_to_depth(prediction, img_info):
+    boxes = prediction.convert("xywh").bbox
+    labels = prediction.get_field("labels")
+    heights = prediction.get_field('depths')
+    new_depths = heights / (boxes[:, 3]) * img_info["camera_params"]["intrinsic"]["fy"]
+    new_depths = PointDepth(new_depths, (img_info["width"], img_info["height"]), 
+                focal_length=img_info["camera_params"]["intrinsic"]["fx"], 
+                baseline=img_info["camera_params"]["extrinsic"]["baseline"], 
+                mode="depth")
+    prediction.add_field("depths", new_depths.depths)
+    return prediction
 
 class Resize(object):
     def __init__(self, min_size, max_size):
@@ -221,7 +234,7 @@ class COCODemo(object):
         if self.cfg.MODEL.KEYPOINT_ON:
             result = self.overlay_keypoints(result, top_predictions)
         if self.cfg.MODEL.DEPTH_ON:
-            result = self.overlay_depth(result, top_predictions, f)
+            result = self.overlay_depth(result, top_predictions)
         if self.cfg.MODEL.BOX3D_ON:
             result = self.overlay_box3d(result, top_predictions, calib)
         result = self.overlay_class_names(result, top_predictions)
@@ -246,7 +259,7 @@ class COCODemo(object):
         image_list = image_list.to(self.device)
         # compute predictions
         with torch.no_grad():
-            predictions = self.model(image_list)
+            predictions = self.model(image_list)["result"]
         predictions = [o.to(self.cpu_device) for o in predictions]
 
         # always single image is passed at a time
@@ -330,13 +343,13 @@ class COCODemo(object):
                 It should contain the field `mask` and `labels`.
         """
         masks = predictions.get_field("mask").numpy()
+        print(masks.shape)
         labels = predictions.get_field("labels")
 
         colors = self.compute_colors_for_labels(labels).tolist()
 
         for mask, color in zip(masks, colors):
             if len(mask.shape)==2: mask = np.expand_dims(mask, axis=0)
-            # print(mask.shape)
             thresh = mask[0, :, :, None]
             contours, hierarchy = cv2_util.findContours(
                 thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
@@ -356,8 +369,20 @@ class COCODemo(object):
             image = vis_keypoints(image, region.transpose((1, 0)))
         return image
 
-    def overlay_depth(self, image, predictions, f=None):
-        depths = predictions.get_field("depths").tolist()
+    def overlay_depth(self, image, predictions, depth_mode=None, img_info=None):
+        depths = predictions.get_field("depths")
+        
+        if depth_mode:
+            if isinstance(depths, PointDepth):
+                depths = depths.convert("depth")
+            else:
+                depths = PointDepth(depths, (img_info["width"], img_info["height"]), 
+                        focal_length=img_info["camera_params"]["intrinsic"]["fx"], 
+                        baseline=img_info["camera_params"]["extrinsic"]["baseline"], 
+                        mode=depth_mode).convert("depth")
+            depths = depths.depths.tolist()
+        else:
+            depths = depths.tolist()
         labels = predictions.get_field("labels").tolist()
         colors = self.compute_colors_for_labels(predictions.get_field("labels")).tolist()
         # if self.cfg.MODEL.ROI_DEPTH_HEAD.SINGLE_DEPTH_REG:
@@ -370,10 +395,7 @@ class COCODemo(object):
             x, y = box[:2]
             # print(depth)
             if type(depth)==list: depth = depth[0]
-            if f:
-                s = "depth: %.6f" % (1/depth*f) # template.format(depth)
-            else:
-                s = "unidepth: %.6f" % (1/depth)
+            s = "depth: %.6f" % (depth) # template.format(depth)
             cv2.putText(
                 image, s, (x, y-20), cv2.FONT_HERSHEY_SIMPLEX, .5, tuple(color), 1
             )
@@ -387,8 +409,8 @@ class COCODemo(object):
         boxes = predictions.bbox.tolist()
         # scores = predictions.get_field("scores").tolist()
         labels = predictions.get_field("labels").tolist()
-        # centers = predictions.get_field('centers').bbox[:,0:2]
-        centers = predictions.get_field("keypoints").keypoints[:,:,:2]
+        centers = predictions.get_field('centers').bbox[:,0:2]
+        # centers = predictions.get_field("keypoints").keypoints[:,:,:2]
         centers = centers.view(-1, 2).tolist()
         depths = predictions.get_field('depths').tolist()
         dims = predictions.get_field('dims')
@@ -406,6 +428,7 @@ class COCODemo(object):
             rys = predictions.get_field('rys').tolist()
             for box, label, depth, dim, alpha, center, location, rotation_y, color in zip(boxes, labels, depths, dims, alphas, centers, locations, rys, colors):
                 if type(depth)==list: depth = depth[0]
+                center = [(box[0] + box[2])/2, (box[1] + box[3])/2]
                 location, rotation_y = ddd2locrot(np.array(center), alpha, np.array(dim), depth, np.array(calib))  
                 box_3d = compute_box_3d(dim, location, rotation_y)
                 box_2d = project_to_image(box_3d, calib)
@@ -564,13 +587,31 @@ class COCODatasetDemo(COCODemo):
         idx, batch = next(self.progress)
         images, targets, image_ids = batch
 
+        # compability
+        kwargs = dict()
+        if isinstance(images, dict):
+            tmp = images.pop("images")
+            for k in images:
+                images[k] = (images[k]).to(self.device)
+            kwargs.update(images)
+            images = tmp
+        images = images.to(self.device)
+        if isinstance(targets, dict):
+            tmp = targets.pop("targets")
+            # for k in targets:
+            #     targets[k] = [target.to(self.device) for target in targets[k]]
+            kwargs.update(targets)
+            targets = tmp
+
+        # targets = [target.to(self.device) for target in targets]
+
         # process image
         with torch.no_grad():
             if self.cfg.TEST.BBOX_AUG.ENABLED:
-                predictions = im_detect_bbox_aug(self.model, images, self.device)
+                result = im_detect_bbox_aug(self.model, images, self.device)
             else:
-                predictions = self.model(images.to(self.device))
-            predictions = [o.to(torch.device("cpu")) for o in predictions]
+                result = self.model(images, targets, **kwargs)
+            predictions = [o.to(torch.device("cpu")) for o in result["result"]]
 
         # always single image is passed at a time
         prediction = predictions[0]
@@ -586,24 +627,37 @@ class COCODatasetDemo(COCODemo):
         height = img_info["height"]
         focal_length = img_info["camera_params"]["intrinsic"]["fx"]
         baseline = img_info["camera_params"]["extrinsic"]["baseline"]
-        if img_info.get("calib"):
-            kitti_calib = img_info["calib"]
-        else:
-            kitti_calib = None
+        # if img_info.get("calib"):
+        #     kitti_calib = img_info["calib"]
+        # else:
+        #     kitti_calib = None
+        kitti_calib = img_info["calib"] if img_info.get("calib") else None
         prediction = prediction.resize((width, height))
         target = target.resize((width, height))
 
+        depth_mode = self.data_loader.dataset.output_depth_mode if hasattr(self.data_loader.dataset, "output_depth_mode") else "depth"
+
+        # when lr head is on, use union 
+        if self.cfg.MODEL.USE_LR_ROI_HEADS:
+            target = target.convert("xyxy")
+            disps = target.get_field("depths").convert("disp").depths
+            target.bbox[:,0] -= disps
+            # prediction = prediction.convert("xyxy")
+            # depths = PointDepth(prediction.get_field("depths")[0], prediction.size, focal_length=target.get_field("depths").focal_length, baseline=target.get_field("depths").baseline, mode="depth")
+            # disps = depths.convert("disp").depths
+            # prediction.bbox[:,0] -= disps
+
         if self.cfg.MODEL.DEPTHNET_ON:
             # get disparity 
-            disp_output = prediction.get_data("disparity")
-            disp_output *= width/256
+            disp_output = result["disparity"][0]
+            disp_output *= width / 256
             # to numpy
-            disp_img=disp_output[0].cpu().numpy().transpose(1,2,0)
+            disp_img=disp_output.cpu().numpy().transpose(1,2,0)
             cv2.imshow("disparity", disp_img)
-            disp_gt = cv2.imread(os.path.join(self.data_loader.dataset.root, img_info['disp_file_name']), -cv2.IMREAD_ANYDEPTH)
-            disp_gt = (disp_gt-1)/256./256.
-            cv2.imshow("disparity_gt", disp_gt)
-            cv2.waitKey()
+            # disp_gt = cv2.imread(os.path.join(self.data_loader.dataset.root, img_info['disp_file_name']), -cv2.IMREAD_ANYDEPTH)
+            # disp_gt = (disp_gt-1)/256./256.
+            # cv2.imshow("disparity_gt", disp_gt)
+            # cv2.waitKey()
 
         if self.cfg.MODEL.RPN_ONLY: return None, None
         
@@ -618,20 +672,26 @@ class COCODatasetDemo(COCODemo):
         top_predictions = self.select_top_predictions(prediction)
         # print(top_predictions, target)
 
-        if self.cfg.MODEL.DEPTH_ON or self.cfg.MODEL.BOX3D_ON:
-            et_match, gt_match = self.match_datas(top_predictions, target)
-            et_depths = top_predictions.get_field("depths").tolist()
-            gt_depths = target.get_field("depths").tolist()
-            for i,j in zip(et_match, gt_match):
-                # print(et_depths[i], gt_depths[j])
-                # abs_err = math.fabs(1/et_depths[i][0]- 1/gt_depths[j]) * focal_length # 1 / depth
-                abs_err = math.fabs(et_depths[i][0]- gt_depths[j]) #/ width * focal_length # disp_unity
-                rel_err = math.fabs(et_depths[i][0]- gt_depths[j]) / gt_depths[j] # disp_unity
-                self.error_stats.append({
-                    "abs_err": abs_err,
-                    "rel_err": rel_err,
-                    "gt": gt_depths[j]
-                })
+        # top_predictions = _height_to_depth(top_predictions, img_info)
+
+        # if self.cfg.MODEL.DEPTH_ON or self.cfg.MODEL.BOX3D_ON:
+        #     et_match, gt_match = self.match_datas(top_predictions, target)
+        #     et_depths = top_predictions.get_field("depths").tolist()
+        #     gt_depths = target.get_field("depths")
+        #     if isinstance(gt_depths, PointDepth):
+        #         gt_depths = gt_depths.depths.tolist()
+        #     else:
+        #         gt_depths = gt_depths.tolist()
+        #     for i,j in zip(et_match, gt_match):
+        #         # print(et_depths[i], gt_depths[j])
+        #         # abs_err = math.fabs(1/et_depths[i][0]- 1/gt_depths[j]) * focal_length # 1 / depth
+        #         abs_err = math.fabs(et_depths[i][0]- gt_depths[j]) #/ width * focal_length # disp_unity
+        #         rel_err = math.fabs(et_depths[i][0]- gt_depths[j]) / gt_depths[j] # disp_unity
+        #         self.error_stats.append({
+        #             "abs_err": abs_err,
+        #             "rel_err": rel_err,
+        #             "gt": gt_depths[j]
+        #         })
                 # self.depth_abs_errors.append(abs_err)
                 # self.depth_rel_errors.append(rel_err)
             # if len(self.depth_abs_errors)>0:
@@ -649,7 +709,7 @@ class COCODatasetDemo(COCODemo):
             # if self.cfg.MODEL.KEYPOINT_ON:
             #     result = self.overlay_keypoints(result, top_predictions)
             if self.cfg.MODEL.DEPTH_ON:
-                result = self.overlay_depth(result, top_predictions, f=focal_length)
+                result = self.overlay_depth(result, top_predictions, img_info=img_info, depth_mode=depth_mode)
             if self.cfg.MODEL.BOX3D_ON:
                 result = self.overlay_box3d(result, top_predictions, calib=kitti_calib)
                 
@@ -659,16 +719,23 @@ class COCODatasetDemo(COCODemo):
         # gt_pred = []
         # for obj in target:
         boxes = target.bbox
-        if target.has_field("mask"):
-            masks = target.get_field("masks").get_mask_tensor().unsqueeze(-1)
+        if target.has_field("masks"):
+            masks = target.get_field("masks").get_mask_tensor()
             # masks = self.masker(masks, boxes)
             target.add_field("mask", masks)
         if target.has_field("keypoints"):
             # add logits
             keypoints = target.get_field("keypoints")
             keypoints.add_field("logits", torch.tensor([[1.] * len(keypoints)] * len(boxes)))
-        # target.add_field("depths", target.get_field("depths"))
+            target.add_field("keypoints", keypoints)
+        if target.has_field("depths"):
+            depths = target.get_field("depths")
+            if isinstance(depths, PointDepth):
+                depths = depths.depths
+            target.add_field("depths", depths)
         target.add_field("scores", torch.tensor([1.] * len(boxes)))
+
+        # target = _height_to_depth(target, img_info)
 
         if not self.test_only:
             result_gt = image.copy()
@@ -680,7 +747,7 @@ class COCODatasetDemo(COCODemo):
             # if self.cfg.MODEL.KEYPOINT_ON:
             #     result_gt = self.overlay_keypoints(result_gt, target)
             if self.cfg.MODEL.DEPTH_ON:
-                result_gt = self.overlay_depth(result_gt, target, f=focal_length)
+                result_gt = self.overlay_depth(result_gt, target, img_info=img_info, depth_mode=depth_mode)
             if self.cfg.MODEL.BOX3D_ON:
                 result_gt = self.overlay_box3d(result_gt, target, calib=kitti_calib)
             result_gt = self.overlay_class_names(result_gt, target)

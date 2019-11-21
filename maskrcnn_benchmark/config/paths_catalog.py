@@ -173,6 +173,27 @@ class DatasetCatalog(object):
             "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
             "depth_key": "disp_unity"
         },
+        "cityscapes_fine_instanceonly_seg_wdl_train": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json",
+            "depth_key": "disp_base",
+            "output_depth_mode": "depth_linear",
+            "depth_range": (0.1, 100),
+        },
+        "cityscapes_fine_instanceonly_seg_wdl_val": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json",
+            "depth_key": "disp_base",
+            "output_depth_mode": "depth_linear",
+            "depth_range": (0.1, 100),
+        },
+        "cityscapes_fine_instanceonly_seg_wdl_test": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
+            "depth_key": "disp_base",
+            "output_depth_mode": "depth_linear",
+            "depth_range": (0.1, 100),
+        },
 
         "cityscapes_fine_instanceonly_seg_wh_train": {
             "img_dir": "cityscapes",
@@ -212,6 +233,39 @@ class DatasetCatalog(object):
             "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json"
         },
 
+        "cityscapes_fine_instanceonly_seg_train_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_train.json",
+            "class_filter_list": ["car", "rider", "person"]
+        },
+        "cityscapes_fine_instanceonly_seg_val_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_val.json",
+            "class_filter_list": ["car", "rider", "person"]
+        },
+        "cityscapes_fine_instanceonly_seg_test_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_test.json",
+            "class_filter_list": ["car", "rider", "person"]
+        },
+
+        "cityscapes_fine_instanceonly_seg_lr_train_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_train.json",
+            "class_filter_list": ["car", "rider", "person"]
+
+        },
+        "cityscapes_fine_instanceonly_seg_lr_val_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_val.json",
+            "class_filter_list": ["car", "rider", "person"]
+        },
+        "cityscapes_fine_instanceonly_seg_lr_test_kitticlass": {
+            "img_dir": "cityscapes",
+            "ann_file": "cityscapes/annotations_with_depth/instancesonly_filtered_gtFine_test.json",
+            "class_filter_list": ["car", "rider", "person"]
+        },
+
         "dukemtmc_train_cocostyle": {
             "img_dir": "dukemtmc/images",
             "ann_file": "dukemtmc/ground_truth/train.json"
@@ -240,10 +294,133 @@ class DatasetCatalog(object):
         "kitti_3d_3dop_box3d_train": {
             "img_dir": "kitti/training/image_2",
             "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
         },
         "kitti_3d_3dop_box3d_val": {
             "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+        },
+        "kitti_3d_3dop_caronly_box3d_train": {
+            "img_dir": "kitti/training/image_2",
             "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car"],
+        },
+        "kitti_3d_3dop_caronly_box3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car"],
+        },
+        "kitti_3d_3dop_pedestrianonly_box3d_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Pedestrian"],
+        },
+        "kitti_3d_3dop_pedestrianonly_box3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Pedestrian"],
+        },
+
+        "kitti_3d_3dop_disp_base_unity_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "output_depth_mode": "disp_base_unity",
+        },
+        "kitti_3d_3dop_disp_base_unity_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "output_depth_mode": "disp_base_unity",
+        },
+
+        "kitti_3d_3dop_depth_linear_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "output_depth_mode": "depth_linear",
+            "depth_range": (0.1, 100),
+        },
+        "kitti_3d_3dop_depth_linear_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "output_depth_mode": "depth_linear",
+            "depth_range": (0.1, 100),
+        },
+        "kitti_3d_3dop_depth_adjust_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+        },
+        "kitti_3d_3dop_depth_adjust_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+        },
+        "kitti_3d_3dop_depth_from_3d_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
+        },
+        "kitti_3d_3dop_depth_from_3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
+        },
+
+        "kitti_lr_3d_3dop_box3d_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+        },
+        "kitti_lr_3d_3dop_box3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+        },
+        "kitti_lr_3d_3dop_depth_adjust_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+        },
+        "kitti_lr_3d_3dop_depth_adjust_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+        },
+        "kitti_lr_3d_3dop_depth_adjust_remove_truncated_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+            "remove_truncated": True,
+        },
+        "kitti_lr_3d_3dop_depth_adjust_remove_truncated_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_adjust",
+            "remove_truncated": True,
+        },
+        "kitti_lr_3d_3dop_depth_from_3d_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train_box_from_3d.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
+        },
+        "kitti_lr_3d_3dop_depth_from_3d_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val_box_from_3d.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
         },
 
     }
@@ -272,14 +449,17 @@ class DatasetCatalog(object):
                 factory="COCODataset",
                 args=args,
             )
-        elif "cityscapes" in name and "_wd" in name:
+        elif "cityscapes" in name: #and "_wd" in name:
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
-                root=os.path.join(data_dir, attrs["img_dir"]),
-                ann_file=os.path.join(data_dir, attrs["ann_file"]),
-                depth_key=attrs["depth_key"] if attrs.get("depth_key") else "depth",
+                root=os.path.join(data_dir, attrs.pop("img_dir")),
+                ann_file=os.path.join(data_dir, attrs.pop("ann_file")),
+                # class_filter_list=attrs["class_filter_list"] if attrs.get("class_filter_list") else [],
+                # depth_key=attrs["depth_key"] if attrs.get("depth_key") else "depth",
+                # output_depth_mode=attrs["output_depth_mode"] if attrs.get("output_depth_mode") else "disp_base_unity",
             )
+            args.update(attrs)
             return dict(
                 factory="CityScapesWDDataset",
                 args=args,
@@ -306,13 +486,32 @@ class DatasetCatalog(object):
                 factory="CityScapesLRDataset",
                 args=args,
             )
+        elif "kitti" in name and "_lr" in name:
+            data_dir = DatasetCatalog.DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                root=os.path.join(data_dir, attrs.pop("img_dir")),
+                ann_file=os.path.join(data_dir, attrs.pop("ann_file")),
+                # class_filter_list=attrs["class_filter_list"] if attrs.get("class_filter_list") else [],
+                # depth_key=attrs["depth_key"] if attrs.get("depth_key") else "depth",
+                # output_depth_mode=attrs["output_depth_mode"] if attrs.get("output_depth_mode") else "disp_base_unity",
+            )
+            args.update(attrs)
+            return dict(
+                factory="KITTILR3DDataset",
+                args=args,
+            )
         elif "kitti" in name:
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
-                root=os.path.join(data_dir, attrs["img_dir"]),
-                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+                root=os.path.join(data_dir, attrs.pop("img_dir")),
+                ann_file=os.path.join(data_dir, attrs.pop("ann_file")),
+                # class_filter_list=attrs["class_filter_list"] if attrs.get("class_filter_list") else [],
+                # depth_key=attrs["depth_key"] if attrs.get("depth_key") else "depth",
+                # output_depth_mode=attrs["output_depth_mode"] if attrs.get("output_depth_mode") else "disp_base_unity",
             )
+            args.update(attrs)
             return dict(
                 factory="KITTI3DDataset",
                 args=args,

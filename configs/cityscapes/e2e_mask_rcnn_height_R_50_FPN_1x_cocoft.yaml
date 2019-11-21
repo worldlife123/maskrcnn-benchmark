@@ -1,4 +1,4 @@
-OUTPUT_DIR: "./checkpoints/cityscapes/e2e_mask_rcnn_height_R_50_FPN_1x_cocoft"
+OUTPUT_DIR: "./checkpoints/cityscapes/e2e_mask_rcnn_height_R_50_FPN_1x_cocoft_2"
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_cityscapes.pth"
@@ -44,7 +44,8 @@ MODEL:
     POOLER_RESOLUTION: 7
     POOLER_SAMPLING_RATIO: 2
     SHARE_BOX_FEATURE_EXTRACTOR: False
-    LOSS_AMPLIFIER: 0.5
+    # LOSS_AMPLIFIER: 0.5
+    # REG_AMPLIFIER: 2.0
     # FREEZE_WEIGHT: True
   DEPTH_ON: True
 INPUT:
@@ -52,6 +53,8 @@ INPUT:
   MAX_SIZE_TRAIN: 2048
   MIN_SIZE_TEST: 1024
   MAX_SIZE_TEST: 2048
+  RANDOM_TRANSLATE: (-0.1, 0.1)
+  RANDOM_SCALE: (0.8, 1.2)
 DATASETS:
   TRAIN: ("cityscapes_fine_instanceonly_seg_wh_train",)
   TEST: ("cityscapes_fine_instanceonly_seg_wh_val",)
@@ -61,6 +64,6 @@ SOLVER:
   BASE_LR: 0.01
   IMS_PER_BATCH: 3
   WEIGHT_DECAY: 0.0001
-  STEPS: (10000,13000)
+  STEPS: (10000,)
   MAX_ITER: 15000
   CHECKPOINT_PERIOD: 5000

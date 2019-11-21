@@ -1,1 +1,1 @@
-python tools/train_net.py --config-file configs/cityscapes/e2e_mask_rcnn_disp_unity_R_50_FPN_1x_cocoft.yaml
+python tools/train_net.py --config-file configs/cityscapes/e2e_mask_rcnn_depth_R_50_FPN_1x_cocoft.yaml

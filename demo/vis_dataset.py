@@ -83,9 +83,11 @@ def main():
                 cv2.imshow("COCO detections", composite)
                 cv2.imshow("Ground Truth", composite_gt)
                 key = cv2.waitKey(-1) 
+                # print(key)
                 if key == 27:
                     break  # esc to quit
                 elif key == ord('s'):
+                    print("Saving..")
                     cv2.imwrite("tmp.jpg", composite)
                     cv2.imwrite("tmp_gt.jpg", composite_gt)
         except StopIteration:

@@ -1,4 +1,4 @@
-OUTPUT_DIR: "./checkpoints/cityscapes/e2e_mask_rcnn_depth_R_50_FPN_1x_cocoft_5"
+OUTPUT_DIR: "./checkpoints/cityscapes/e2e_mask_rcnn_depth_R_50_FPN_1x_cocoft_14"
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_cityscapes.pth"
@@ -40,19 +40,26 @@ MODEL:
   MASK_ON: True
   ROI_DEPTH_HEAD:
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
-    FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
+    FEATURE_EXTRACTOR: "FPN2MLPLevelMix3DConvFeatureExtractor"
     PREDICTOR: "FPNDepthPredictor"
     POOLER_RESOLUTION: 7
     POOLER_SAMPLING_RATIO: 2
     SHARE_BOX_FEATURE_EXTRACTOR: False
-    LOSS_AMPLIFIER: 0.01
+    INPUT_MASK_FEATURES: True
+    # LOSS_AMPLIFIER: 0.01
+    REG_AMPLIFIER: 50.0
     # FREEZE_WEIGHT: True
   DEPTH_ON: True
 INPUT:
-  MIN_SIZE_TRAIN: (1024,) #(800, 832, 864, 896, 928, 960, 992, 1024, 1024)
+  MIN_SIZE_TRAIN: (1024,) # (800, 832, 864, 896, 928, 960, 992, 1024, 1024)
   MAX_SIZE_TRAIN: 2048
   MIN_SIZE_TEST: 1024
   MAX_SIZE_TEST: 2048
+  # RANDOM_TRANSLATE: (-0.1, 0.1)
+  # RANDOM_SCALE: (0.8, 1.2)
+# TEST:
+#   INPUT_TARGETS: True
+#   TARGETS_AS_PROPOSALS: True
 DATASETS:
   TRAIN: ("cityscapes_fine_instanceonly_seg_wd_train",)
   TEST: ("cityscapes_fine_instanceonly_seg_wd_val",)
@@ -62,6 +69,6 @@ SOLVER:
   BASE_LR: 0.01
   IMS_PER_BATCH: 3
   WEIGHT_DECAY: 0.0001
-  STEPS: (10000,13000)
+  STEPS: (10000,)
   MAX_ITER: 15000
   CHECKPOINT_PERIOD: 5000
