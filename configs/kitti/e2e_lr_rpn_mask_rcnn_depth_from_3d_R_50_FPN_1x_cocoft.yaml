@@ -1,4 +1,4 @@
-OUTPUT_DIR: "./checkpoints/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_13"
+OUTPUT_DIR: "./checkpoints/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_16"
 MODEL:
   META_ARCHITECTURE: "GeneralizedLRRCNN"
   WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_kitti.pth"
@@ -19,7 +19,9 @@ MODEL:
     POST_NMS_TOP_N_TEST: 1000
     FPN_POST_NMS_TOP_N_TEST: 1000
     # FREEZE_WEIGHT: True
-  # RPN_LR:
+  RPN_LR:
+    ENABLE_BASELINE_ADJUST: True
+    REFERENCE_BASELINE: 0.2
   #   # SINGLE_HEAD_TEST: True
   #   MONO_HEAD_TEST: True
   #   MONO_HEAD_ON: True
@@ -28,7 +30,9 @@ MODEL:
   USE_LR_RPN: True
   ROI_HEADS:
     USE_FPN: True
-  # ROI_HEADS_LR:
+  ROI_HEADS_LR:
+    ENABLE_BASELINE_ADJUST: True
+    REFERENCE_BASELINE: 0.2
   #   MONO_HEAD_TEST: True
   #   MONO_HEAD_ON: True
   #   LOSS_FEATURE_CONSISTENCY: 1.0

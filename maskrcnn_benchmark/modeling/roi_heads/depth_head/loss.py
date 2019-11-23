@@ -357,7 +357,7 @@ class MaskRCNNDepthLRLossComputation(object):
 
         return labels, depths
 
-    def __call__(self, proposals_left, proposals_right, depth_logits, targets_left, targets_right):
+    def __call__(self, proposals_left, proposals_right, depth_logits, targets_left, targets_right, img_info=None):
         """
         Arguments:
             proposals (list[BoxList])
@@ -369,6 +369,13 @@ class MaskRCNNDepthLRLossComputation(object):
         """
         labels, depth_targets = self.prepare_targets(proposals_left, proposals_right, targets_left, targets_right)
         if len(depth_targets)==0: return 0
+
+        # modify regression value according to baseline
+        if self.cfg.MODEL.ROI_HEADS_LR.ENABLE_BASELINE_ADJUST:
+            for img_info_single, target in zip(img_info, depth_targets):
+                if img_info_single["camera_params"]["extrinsic"].get("baseline"):
+                    baseline_modifier = self.cfg.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE / img_info_single["camera_params"]["extrinsic"]["baseline"]
+                    target *= baseline_modifier
 
         labels = cat(labels, dim=0)
         depth_targets = cat(depth_targets, dim=0)

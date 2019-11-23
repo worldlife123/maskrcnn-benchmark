@@ -185,10 +185,11 @@ class ROIDepthLRHead(torch.nn.Module):
                 raise NotImplementedError("No heads for roi_depth_lr is given!")
 
         # modify regression value according to baseline
-        # for img_info_single, logit in zip(img_info, depth_logits_left):
-        #     if img_info_single["camera_params"]["extrinsic"].get("baseline"):
-        #         baseline_modifier = self.cfg.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE / img_info_single["camera_params"]["extrinsic"]["baseline"]
-        #         logit *= baseline_modifier
+        if self.cfg.MODEL.ROI_HEADS_LR.ENABLE_BASELINE_ADJUST:
+            for img_info_single, logit in zip(img_info, depth_logits_left):
+                if img_info_single["camera_params"]["extrinsic"].get("baseline"):
+                    baseline_modifier = self.cfg.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE / img_info_single["camera_params"]["extrinsic"]["baseline"]
+                    logit *= baseline_modifier
 
         # add depth estimation to proposals
         if self.cfg.MODEL.ROI_DEPTH_HEAD.DEPTH_FROM_LR_DETECTION:
@@ -212,7 +213,7 @@ class ROIDepthLRHead(torch.nn.Module):
 
             if not self.cfg.MODEL.ROI_DEPTH_HEAD.FREEZE_WEIGHT:
                 if self.cfg.MODEL.ROI_DEPTH_HEAD.DEPTH_FROM_LR_DETECTION:
-                    loss_depth = self.loss_evaluator_lr(proposals_left, proposals_right, depth_logits_left, targets_left, targets_right)
+                    loss_depth = self.loss_evaluator_lr(proposals_left, proposals_right, depth_logits_left, targets_left, targets_right, img_info=img_info)
                 else:
                     loss_depth = self.loss_evaluator(proposals_left, depth_logits_left, targets_left)
                     # loss_depth_right = self.loss_evaluator(proposals_right, depth_logits_right, targets_right)

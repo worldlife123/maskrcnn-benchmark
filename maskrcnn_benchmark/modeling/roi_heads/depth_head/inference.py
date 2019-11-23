@@ -198,11 +198,12 @@ class DepthLRPostProcessor(nn.Module):
             # disp_reg = disp_reg/self.cfg.MODEL.ROI_DEPTH_HEAD.REG_AMPLIFIER
             # if self.cfg.MODEL.ROI_DEPTH_HEAD.REG_LOGARITHM:
             #     depth = torch.exp(torch.abs(depth)) -1
+
+            baseline = self.cfg.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE if self.cfg.MODEL.ROI_HEADS_LR.ENABLE_BASELINE_ADJUST else img_info_single["camera_params"]["extrinsic"]["baseline"]
             
             disp = PointDepth(disp, bbox_left.size, mode="disp", 
                 focal_length=img_info_single["camera_params"]["intrinsic"]["fx"], 
-                # baseline=img_info_single["camera_params"]["extrinsic"]["baseline"],
-                baseline=self.cfg.MODEL.ROI_HEADS_LR.REFERENCE_BASELINE,
+                baseline=baseline,
             )
             # print(depth)
             bbox_left.add_field("depths", disp)

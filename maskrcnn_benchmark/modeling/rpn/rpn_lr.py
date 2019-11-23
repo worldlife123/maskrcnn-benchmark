@@ -156,11 +156,12 @@ class RPNLRModule(torch.nn.Module):
 
         # the regression value is set to estimate stereo box according to the reference baseline
         # so we need to modify regression value according to baseline
-        # for img_info, reg_left, reg_right in zip(images_left.image_infos, rpn_box_regression, rpn_box_regression_right):
-        #     if img_info["camera_params"]["extrinsic"].get("baseline"):
-        #         baseline_modifier = self.cfg.MODEL.RPN_LR.REFERENCE_BASELINE / img_info["camera_params"]["extrinsic"]["baseline"]
-        #         disp = reg_left[:,0] - reg_right[:,0]
-        #         reg_right[:,0] = reg_left[:,0] - disp / baseline_modifier
+        if self.cfg.MODEL.RPN_LR.ENABLE_BASELINE_ADJUST:
+            for img_info, reg_left, reg_right in zip(images_left.image_infos, rpn_box_regression, rpn_box_regression_right):
+                if img_info["camera_params"]["extrinsic"].get("baseline"):
+                    baseline_modifier = self.cfg.MODEL.RPN_LR.REFERENCE_BASELINE / img_info["camera_params"]["extrinsic"]["baseline"]
+                    disp = reg_left[:,0] - reg_right[:,0]
+                    reg_right[:,0] = reg_left[:,0] - disp / baseline_modifier
 
         if self.training:
             boxes, boxes_right, losses = self._forward_train(anchors, objectness, rpn_box_regression, rpn_box_regression_right, targets_left, targets_right)
