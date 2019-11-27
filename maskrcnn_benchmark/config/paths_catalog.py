@@ -436,6 +436,20 @@ class DatasetCatalog(object):
             "depth_key": "depth_from_3d",
             "remove_truncated": True,
         },
+        "kitti_lr_3d_3dop_depth_from_3d_brfd_train": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_train_box_from_3d.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
+            "box_right_from_depth": True,
+        },
+        "kitti_lr_3d_3dop_depth_from_3d_brfd_val": {
+            "img_dir": "kitti/training/image_2",
+            "ann_file": "kitti/annotations/kitti_3dop_val_box_from_3d.json",
+            "class_filter_list": ["Car", "Cyclist", "Pedestrian"],
+            "depth_key": "depth_from_3d",
+            "box_right_from_depth": True,
+        },
 
     }
 

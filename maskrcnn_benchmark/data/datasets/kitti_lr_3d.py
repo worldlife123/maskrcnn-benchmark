@@ -47,6 +47,7 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
         remove_truncated=False, 
         truncated_threshold=0.1,
         transforms=None, 
+        box_right_from_depth=False,
         depth_key="depth", 
         input_depth_mode="depth",
         output_depth_mode="depth", 
@@ -86,6 +87,8 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
 
         self.remove_truncated = remove_truncated
         self.truncated_threshold = truncated_threshold
+
+        self.box_right_from_depth = box_right_from_depth
 
         self.depth_key = depth_key
         self.input_depth_mode = input_depth_mode
@@ -133,7 +136,7 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes
         target = BoxList(boxes, img.size, mode="xywh").convert("xyxy")
 
-        if anno and "bbox_right" in anno[0]:
+        if anno and "bbox_right" in anno[0] and not self.box_right_from_depth:
             boxes_right = [obj["bbox_right"] for obj in anno]
             boxes_right = torch.as_tensor(boxes_right).reshape(-1, 4)  # guard against no boxes
             right_target = BoxList(boxes_right, img.size, mode="xywh").convert("xyxy")

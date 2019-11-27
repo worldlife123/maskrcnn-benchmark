@@ -1,4 +1,4 @@
-OUTPUT_DIR: "./checkpoints/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_19"
+OUTPUT_DIR: "./checkpoints/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_20"
 MODEL:
   META_ARCHITECTURE: "GeneralizedLRRCNN"
   WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_kitti.pth"
@@ -78,8 +78,8 @@ INPUT:
 # TEST:
 #   INPUT_TARGETS: True
 DATASETS:
-  TRAIN: ("kitti_lr_3d_3dop_depth_from_3d_remove_truncated_train",)
-  TEST: ("kitti_lr_3d_3dop_depth_from_3d_remove_truncated_val",)
+  TRAIN: ("kitti_lr_3d_3dop_depth_from_3d_brfd_train",)
+  TEST: ("kitti_lr_3d_3dop_depth_from_3d_brfd_val",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
