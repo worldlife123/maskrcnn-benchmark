@@ -638,10 +638,10 @@ class COCODatasetDemo(COCODemo):
         depth_mode = self.data_loader.dataset.output_depth_mode if hasattr(self.data_loader.dataset, "output_depth_mode") else "depth"
 
         # when lr head is on, use union 
-        if self.cfg.MODEL.USE_LR_ROI_HEADS:
-            target = target.convert("xyxy")
-            disps = target.get_field("depths").convert("disp").depths
-            target.bbox[:,0] -= disps
+        # if self.cfg.MODEL.USE_LR_ROI_HEADS:
+        #     target = target.convert("xyxy")
+        #     disps = target.get_field("depths").convert("disp").depths
+        #     target.bbox[:,0] -= disps
             # prediction = prediction.convert("xyxy")
             # depths = PointDepth(prediction.get_field("depths")[0], prediction.size, focal_length=target.get_field("depths").focal_length, baseline=target.get_field("depths").baseline, mode="depth")
             # disps = depths.convert("disp").depths

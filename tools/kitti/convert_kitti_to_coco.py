@@ -7,7 +7,7 @@ import json
 import numpy as np
 import cv2
 DATA_PATH = '../../datasets/kitti/'
-DEBUG = True
+DEBUG = False
 # VAL_PATH = DATA_PATH + 'training/label_val/'
 import os, struct
 SPLITS = ['3dop', 'subcnn'] 
@@ -228,7 +228,7 @@ for SPLIT in SPLITS:
         tmp = txt[:-1].split(' ')
         cat_id = cat_ids[tmp[0]]
         if tmp[0] == 'DontCare': continue # filter out (TODO:)
-        truncated = int(float(tmp[1]))
+        truncated = float(tmp[1])
         occluded = int(tmp[2])
         alpha = float(tmp[3])
         bbox = [float(tmp[4]), float(tmp[5]), float(tmp[6]), float(tmp[7])]

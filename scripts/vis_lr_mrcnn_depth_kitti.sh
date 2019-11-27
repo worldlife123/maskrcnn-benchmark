@@ -1,1 +1,1 @@
-python demo/vis_dataset.py --config-file configs/kitti/e2e_lr_rpn_mask_rcnn_depth_R_50_FPN_1x_cocoft.yaml #--confidence-threshold 0.0 # --test-only
+python demo/vis_dataset.py --config-file configs/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft.yaml #--confidence-threshold 0.0 # --test-only

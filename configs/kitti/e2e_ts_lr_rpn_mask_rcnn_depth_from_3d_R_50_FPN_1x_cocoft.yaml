@@ -1,14 +1,14 @@
-OUTPUT_DIR: "./checkpoints/kitti/e2e_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_19"
+OUTPUT_DIR: "./checkpoints/kitti/e2e_ts_lr_rpn_mask_rcnn_depth_from_3d_R_50_FPN_1x_cocoft_2"
 MODEL:
   META_ARCHITECTURE: "GeneralizedLRRCNN"
-  WEIGHT: "checkpoints/pretrained/e2e_mask_rcnn_R_50_FPN_1x_kitti.pth"
+  WEIGHT: "checkpoints/pretrained/e2e_lr_rpn_mask_rcnn_R_50_FPN_1x_kitti_trained.pth"
   BACKBONE:
     CONV_BODY: "R-50-FPN"
-    # FREEZE_CONV_BODY_AT: 5
+    FREEZE_CONV_BODY_AT: 5
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
-  # FPN:
-    # FREEZE_WEIGHT: True
+  FPN:
+    FREEZE_WEIGHT: True
   RPN:
     USE_FPN: True
     RPN_HEAD: "SingleConvRPNLRHead"
@@ -19,18 +19,26 @@ MODEL:
     POST_NMS_TOP_N_TEST: 1000
     FPN_POST_NMS_TOP_N_TEST: 1000
     # FREEZE_WEIGHT: True
-  # RPN_LR:
-  #   MONO_HEAD_TEST: True
-  #   MONO_HEAD_ON: True
-  #   LOSS_HEAD_CONSISTENCY: 1.0
+  RPN_LR:
+    # ENABLE_BASELINE_ADJUST: True
+    # REFERENCE_BASELINE: 0.2
+    # SINGLE_HEAD_TEST: True
+    MONO_HEAD_TEST: True
+    MONO_HEAD_ON: True
+    # STEREO_HEAD_ON: False
+    LOSS_HEAD_CONSISTENCY: 1.0
+    STEREO_HEAD_FREEZE_WEIGHT: True
   USE_LR_RPN: True
   ROI_HEADS:
     USE_FPN: True
-  # ROI_HEADS_LR:
-  #   MONO_HEAD_TEST: True
-  #   MONO_HEAD_ON: True
-  #   LOSS_FEATURE_CONSISTENCY: 1.0
-  #   LOSS_PREDICTOR_CONSISTENCY: 1.0
+  ROI_HEADS_LR:
+    # ENABLE_BASELINE_ADJUST: True
+    # REFERENCE_BASELINE: 0.2
+    MONO_HEAD_TEST: True
+    MONO_HEAD_ON: True
+    LOSS_FEATURE_CONSISTENCY: 1.0
+    LOSS_PREDICTOR_CONSISTENCY: 1.0
+    STEREO_HEAD_FREEZE_WEIGHT: True
   USE_LR_ROI_HEADS: True
   ROI_BOX_HEAD:
     POOLER_RESOLUTION: 7
@@ -54,8 +62,8 @@ MODEL:
   ROI_DEPTH_HEAD:
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
     FEATURE_EXTRACTOR: "FPN2MLPLevelMix3DConvFeatureExtractor"
-    FEATURE_EXTRACTOR_LR: "FPN2MLPLevelMixCostVolumeLRFeatureExtractor"
-    USE_LR_FEATURE_EXTRACTOR: True
+    # FEATURE_EXTRACTOR: "FPN2MLPLevelMixCostVolumeLRFeatureExtractor"
+    # USE_LR_FEATURE_EXTRACTOR: True
     PREDICTOR: "FPNDepthPredictor"
     POOLER_RESOLUTION: 7
     POOLER_SAMPLING_RATIO: 2
@@ -78,15 +86,15 @@ INPUT:
 # TEST:
 #   INPUT_TARGETS: True
 DATASETS:
-  TRAIN: ("kitti_lr_3d_3dop_depth_from_3d_remove_truncated_train",)
-  TEST: ("kitti_lr_3d_3dop_depth_from_3d_remove_truncated_val",)
+  TRAIN: ("kitti_lr_3d_3dop_depth_from_3d_train",)
+  TEST: ("kitti_lr_3d_3dop_depth_from_3d_val",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   # LOAD_OPTIMIZER_FROM_WEIGHT: False
   # LOAD_SCHEDULER_FROM_WEIGHT: False
   BASE_LR: 0.01
-  IMS_PER_BATCH: 7
+  IMS_PER_BATCH: 8
   WEIGHT_DECAY: 0.0001
   STEPS: (15000,)
   MAX_ITER: 20000

@@ -43,6 +43,7 @@ class KITTI3DDataset(torchvision.datasets.coco.CocoDetection):
         self, ann_file, root, is_train, 
         class_filter_list=[], 
         remove_truncated=False, 
+        truncated_threshold=0.1, 
         transforms=None, 
         depth_key="depth", 
         input_depth_mode="depth",
@@ -81,6 +82,7 @@ class KITTI3DDataset(torchvision.datasets.coco.CocoDetection):
             self.ids = ids
 
         self.remove_truncated = remove_truncated
+        self.truncated_threshold = truncated_threshold
 
         self.depth_key = depth_key
         self.input_depth_mode = input_depth_mode
@@ -99,7 +101,7 @@ class KITTI3DDataset(torchvision.datasets.coco.CocoDetection):
         # filter crowd annotations
         # TODO might be better to add an extra field
         if self.remove_truncated:
-            anno = [obj for obj in anno if obj["truncated"] == 0]
+            anno = [obj for obj in anno if obj["truncated"] < self.truncated_threshold]
 
         if len(self.class_filter_list) > 0:
             anno = [obj for obj in anno if obj["category_id"] in self.class_filter_list]

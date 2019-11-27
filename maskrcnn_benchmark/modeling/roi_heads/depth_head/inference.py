@@ -190,7 +190,7 @@ class DepthLRPostProcessor(nn.Module):
             # )
             
             # calculate disparity from box bias
-            disp = (box_left.bbox[:,0:1] - bbox_right_decoded[:,0:1] + box_left.bbox[:,2:3] - bbox_right_decoded[:,2:3]) / 2
+            disp = box_left.bbox[:,0:1] - bbox_right_decoded[:,0:1]
             
             bbox_left = BoxList(box_left.bbox, box_left.size, mode="xyxy")
             for field in box_left.fields():

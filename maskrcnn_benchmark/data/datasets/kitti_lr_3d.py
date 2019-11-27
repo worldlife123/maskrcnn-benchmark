@@ -45,6 +45,7 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
         self, ann_file, root, is_train,
         class_filter_list=[], 
         remove_truncated=False, 
+        truncated_threshold=0.1,
         transforms=None, 
         depth_key="depth", 
         input_depth_mode="depth",
@@ -77,11 +78,14 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
             for img_id in self.ids:
                 ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
                 anno = self.coco.loadAnns(ann_ids)
-                if has_valid_annotation(anno) and len([obj for obj in anno if obj["category_id"] in self.class_filter_list])>0:
+                if has_valid_annotation(anno) and  \
+                    len([obj for obj in anno if obj["category_id"] in self.class_filter_list])>0 and \
+                    (not remove_truncated or len([obj for obj in anno if obj["truncated"] < truncated_threshold])>0):
                     ids.append(img_id)
             self.ids = ids
 
         self.remove_truncated = remove_truncated
+        self.truncated_threshold = truncated_threshold
 
         self.depth_key = depth_key
         self.input_depth_mode = input_depth_mode
@@ -115,15 +119,15 @@ class KITTILR3DDataset(torchvision.datasets.coco.CocoDetection):
         if self.target_transform is not None:
             anno = self.target_transform(anno)
 
-        # filter crowd annotations
-        # TODO might be better to add an extra field
-        if self.remove_truncated:
-            anno = [obj for obj in anno if obj["truncated"] == 0]
-        else:
-            anno = [obj for obj in anno]
-
         if len(self.class_filter_list) > 0:
             anno = [obj for obj in anno if obj["category_id"] in self.class_filter_list]
+
+        # filter crowd annotations
+        # TODO might be better to add an extra field
+        if self.remove_truncated and len([obj for obj in anno if obj["truncated"] < self.truncated_threshold])>0:
+            anno = [obj for obj in anno if obj["truncated"] < self.truncated_threshold]
+        # else:
+        #     anno = [obj for obj in anno]
 
         boxes = [obj["bbox"] for obj in anno]
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes

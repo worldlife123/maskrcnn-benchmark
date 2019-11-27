@@ -8,7 +8,7 @@ from maskrcnn_benchmark.structures.boxlist_ops import boxlist_union
 from maskrcnn_benchmark.structures.point_3d import PointDepth
 from maskrcnn_benchmark.layers import smooth_l1_loss
 
-from .roi_depth_feature_extractors import make_roi_depth_feature_extractor
+from .roi_depth_feature_extractors import make_roi_depth_feature_extractor, make_roi_depth_lr_feature_extractor
 from .roi_depth_predictors import make_roi_depth_predictor, make_roi_depth_lr_predictor
 from .inference import make_roi_depth_post_processor, make_roi_depth_lr_post_processor
 from .loss import make_roi_depth_loss_evaluator, make_roi_depth_lr_loss_evaluator
@@ -44,10 +44,15 @@ class ROIDepthLRHead(torch.nn.Module):
         super(ROIDepthLRHead, self).__init__()
         self.cfg = cfg.clone()
         
+        if self.cfg.MODEL.ROI_DEPTH_HEAD.USE_LR_FEATURE_EXTRACTOR:
+            self.feature_extractor_lr = make_roi_depth_lr_feature_extractor(cfg, in_channels)
         self.feature_extractor = make_roi_depth_feature_extractor(cfg, in_channels)
         # self.feature_extractor_extra = make_roi_depth_feature_extractor(cfg, in_channels)
         if self.cfg.MODEL.ROI_HEADS_LR.MONO_HEAD_ON:
-            self.feature_extractor_mono = make_roi_depth_feature_extractor(cfg, in_channels, self.feature_extractor.out_channels*2)
+            if self.cfg.MODEL.ROI_DEPTH_HEAD.USE_LR_FEATURE_EXTRACTOR:
+                self.feature_extractor_mono = make_roi_depth_lr_feature_extractor(cfg, in_channels)
+            else:
+                self.feature_extractor_mono = make_roi_depth_feature_extractor(cfg, in_channels, self.feature_extractor.out_channels*2)
             self.predictor_mono = make_roi_depth_predictor(cfg, self.feature_extractor.out_channels*3)
             if self.cfg.MODEL.ROI_HEADS_LR.MONO_HEAD_FREEZE_WEIGHT:
                 for p in self.feature_extractor_mono.parameters():
@@ -153,6 +158,8 @@ class ROIDepthLRHead(torch.nn.Module):
                 #     fr = fr2
                 if self.cfg.MODEL.ROI_DEPTH_HEAD.INPUT_BOX_FEATURES:
                     xu = extra_features # [torch.cat(positive_inds, dim=0)]
+                elif self.cfg.MODEL.ROI_DEPTH_HEAD.USE_LR_FEATURE_EXTRACTOR:
+                    xu = self.feature_extractor_lr(features_left, proposals_union, extra_features=features_right)
                 else:
                     ful = self.feature_extractor(features_left, proposals_union)
                     fur = self.feature_extractor(features_right, proposals_union)
@@ -176,6 +183,9 @@ class ROIDepthLRHead(torch.nn.Module):
                             depth_logits_left, depth_logits_mono_left
                         ) * self.cfg.MODEL.ROI_HEADS_LR.LOSS_PREDICTOR_CONSISTENCY
                         loss_dict.update(dict(loss_depth_pc=head_loss))
+                    # if self.cfg.MODEL.ROI_HEADS_LR.STEREO_HEAD_FREEZE_WEIGHT:
+                    #     depth_logits_left = depth_logits_mono_left
+
             elif self.cfg.MODEL.ROI_HEADS_LR.MONO_HEAD_ON:
                 xu = self.feature_extractor_mono(features_left, proposals_union)
                 xl = torch.cat([fl, xu], dim=1) # torch.cat([fl, fr, xu], dim=1)
